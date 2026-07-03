@@ -18,65 +18,107 @@ category-based individual ranking, and school scoring (top-5-per-school rule).
 merentas-desa/
 ├── server.js               # thin HTTP entry point: wires routes, starts listening
 ├── package.json
+├── docs/                   # role-by-role guides + architecture (see below)
 ├── lib/
-│   ├── config.js           # schools, categories, scoring constants, data file paths
-│   ├── store.js            # JSON read/write + per-file atomic write queue
+│   ├── config.js           # schools, categories, scoring, permission-matrix seeds, data file paths
+│   ├── store.js            # JSON read/write + per-file (and per-key) atomic write queue
+│   ├── auth.js             # password hashing, sessions, requireAuth() (auth + authz)
+│   ├── audit.js            # logAudit() / readAuditLog() - append-only audit trail
+│   ├── lifecycle.js        # event lifecycle state machine (Open/Close/Archive/Create New)
 │   ├── http-helpers.js     # sendJSON, parseBody, static file serving
 │   ├── router.js           # minimal method+path router (no framework)
-│   ├── bib.js               # bib number generation logic
-│   ├── csv.js                # zero-dependency CSV parser (for batch import)
-│   └── init-data.js         # ensures data/*.json exist on startup
+│   ├── bib.js              # bib number generation logic
+│   ├── csv.js              # zero-dependency CSV parser (for batch import)
+│   └── init-data.js        # ensures data/*.json exist on startup
 ├── routes/
-│   ├── schools.js            # school management (add/rename)
+│   ├── auth.js              # login/logout/change-password/create-user
+│   ├── schools.js           # school management (add/rename)
 │   ├── categories.js
 │   ├── students.js          # registration CRUD + CSV batch import
-│   ├── checkins.js           # attendance check-in
-│   ├── race.js                # per-category race timers (start/reset)
-│   ├── results.js            # Finish Recording (auto time) + manual override
-│   ├── rankings.js           # ranking + school scoring computation
-│   └── scoring.js             # runtime-configurable points table / top-N-per-school
-├── data/
+│   ├── checkins.js          # attendance check-in
+│   ├── race.js               # per-category race timers (start/finish/reset)
+│   ├── results.js           # Finish Recording (auto time) + manual override
+│   ├── rankings.js          # ranking + school scoring computation
+│   ├── scoring.js            # runtime-configurable points table / top-N-per-school
+│   ├── lifecycle.js         # event lifecycle transitions (admin-only)
+│   └── audit.js              # audit log viewer (admin-only)
+├── data/                    # gitignored - runtime state, not code (see docs/Backup & Recovery.md)
 │   ├── schools.json          # participating schools (seeded once, then editable)
 │   ├── students.json        # registered participants
 │   ├── checkins.json         # attendance check-in records (bib + timestamp)
 │   ├── results.json         # recorded finish times (bib + elapsed seconds + recordedAt timestamp)
 │   ├── counters.json        # bib sequence counters (per school + category)
 │   ├── race-status.json      # per-category race start timestamps
-│   └── scoring-config.json   # points-per-rank table + top-N-per-school (seeded once, then editable)
+│   ├── scoring-config.json   # points-per-rank table + top-N-per-school (seeded once, then editable)
+│   ├── users.json           # accounts (password hashes, never plaintext)
+│   ├── sessions.json         # active login sessions
+│   ├── event_log.json        # append-only audit trail
+│   ├── event-lifecycle.json  # current lifecycle state (OPEN/CLOSED/ARCHIVED) + epoch
+│   ├── role_permissions.json # the permission matrix (editable, takes effect immediately)
+│   └── archive/               # one timestamped snapshot folder per Archive action
 └── public/
-    ├── index.html           # dashboard / event summary
-    ├── register.html        # participant registration (auto bib generation)
+    ├── login.html            # login page
+    ├── change-password.html  # forced password change on first login
+    ├── index.html            # dashboard / event summary
+    ├── register.html         # participant registration (auto bib generation)
     ├── checkin.html           # attendance check-in (search/scan + one click)
-    ├── race-control.html       # per-category race timer start/reset (admin)
+    ├── race-control.html      # per-category race timer start/finish/reset
     ├── record.html          # Finish Recording (search + Finish button)
     ├── rankings.html         # category rankings + school leaderboard (admin/detail view)
-    ├── leaderboard.html        # live scoreboard: latest finishers, top 3, school ranking (projector view)
+    ├── leaderboard.html        # live scoreboard: latest finishers, top 3, school ranking (projector view) - public, no login
     ├── schools.html           # school management (add school / rename)
     ├── scoring.html            # scoring configuration (points table, top-N-per-school)
     ├── style.css
-    └── app.js               # shared helper functions
+    └── app.js               # shared helper functions (incl. login/role/nav-visibility logic)
 ```
 
-Adding a new resource (e.g. UI polish in Phase 8) rarely touches `routes/` at
-all — most of the backend now exists; new work is mostly frontend/CSS.
+See `docs/Architecture.md` for how these pieces fit together, and the
+role-specific guides (`docs/Admin Guide.md`, `docs/School Manager Guide.md`,
+`docs/Race Official Guide.md`, `docs/User Guide.md`) for day-to-day usage.
 
-## Run the Project
+## Installation
 
-Requires only Node.js (v14+) — no `npm install` needed.
+**Prerequisites:** Node.js v14 or later. That's it — zero npm dependencies,
+so there is no `npm install` step.
 
 ```bash
+git clone <this repository>
 cd merentas-desa
+```
+
+No build step, no compilation, no database to set up. `data/*.json` is
+created automatically on first startup (see `lib/init-data.js`).
+
+## Starting the Server
+
+```bash
 node server.js
 ```
 
 Then open **http://localhost:3000** in your browser. You'll land on the login
-page - see **Login & Roles** below for the default accounts.
+page — see **Default Accounts** below.
 
 (Optional) `npm start` runs the same command. To use a different port:
 
 ```bash
 PORT=8080 node server.js
 ```
+
+To stop the server, press `Ctrl+C` in the terminal it's running in (or kill
+the process another way) — see `docs/Backup & Recovery.md` for what happens
+on restart (short answer: nothing is lost).
+
+## Default Accounts
+
+| Role | Username | Default Password |
+|---|---|---|
+| Administrator | `admin` | `admin2026` |
+| School Manager | your school code (`TK`, `SL`, `HU`, `YC`, `CU`, `NS`, `KK`, `NK`, `SM`, or `NP`) | `<CODE>2026` (e.g. `TK2026`) |
+| Race Official | `official` | `official2026` |
+
+**Every account is forced to change its password on first login** — there is
+no way to skip this. See **Login & Roles** below for details, and the
+role-specific guides in `docs/` for what each role can do.
 
 ## Login & Roles
 
@@ -328,26 +370,53 @@ code edit or restart needed:
 (API: `GET/PUT /api/scoring-config`, stored in `data/scoring-config.json`,
 seeded once from defaults in `lib/config.js` then fully live-editable.)
 
+## Full Race Flow: Open → Close → Archive → Create New
+
+This is how you take a race day from start to finish and prepare for the
+*next* event, without ever losing historical data. Only the Administrator can
+do this (see `docs/Admin Guide.md` for the full walkthrough).
+
+```
+OPEN ──close──> CLOSED ──archive──> ARCHIVED ──create new──> OPEN (next event)
+  ▲               │
+  └───reopen──────┘   (correction path if closed by mistake)
+```
+
+1. **OPEN** (the default/normal state) — registration, check-in, race control,
+   and result recording all work normally.
+2. **Close** — stops all further mutations for the day. This is reversible:
+   you can **Open** again from `CLOSED` if you closed too early by mistake.
+3. **Archive** — only valid from `CLOSED`. Snapshots students/results/
+   check-ins/race-status/bib-counters into `data/archive/<timestamp>/`
+   **before** anything is cleared. This is the actual backup step.
+4. **Create New** — only valid from `ARCHIVED`. Clears those same 5 files
+   back to empty and returns to `OPEN`, ready for the next event. Schools,
+   user accounts, and the permission matrix are never touched.
+
+This sequence cannot be skipped or reordered — the system rejects any
+out-of-order attempt with a clear error (e.g. trying to Archive while still
+`OPEN`). See `docs/Backup & Recovery.md` for the full backup story, and
+`docs/Architecture.md` for how this is made safe under concurrent race-day
+load (the short version: a generation counter plus a shared lock closes a
+race condition where an in-flight write could otherwise land in the wrong
+event after a fast Close→Archive→Create New cycle — found and fixed during
+1.1-E's architecture review, then verified under real concurrent load).
+
+(API: `GET /api/lifecycle`, `POST /api/lifecycle/open|close|archive|create-new`)
+
 ## Data Storage & Recovery
 
-All data lives as plain JSON in `data/` — easy to back up, inspect, or reset:
-- `students.json` / `results.json` / `checkins.json` → reset to `[]`
-- `counters.json` → reset to `{}` (this also restarts bib numbering from
-  each category's range start)
-- `schools.json` → delete the file to re-seed the original 10 schools on next
-  startup (any schools added/renamed since will be lost)
-- `race-status.json` → reset to `{}` to clear all category start times (every
-  category becomes "not started" again)
-- `scoring-config.json` → delete the file to re-seed the default points table
-  and top-N-per-school on next startup
+All data lives as plain JSON in `data/` (gitignored — it's real people's
+data, not code) — see `docs/Backup & Recovery.md` for the full picture,
+including manual backup instructions and what to do if the server crashes or
+the computer restarts mid-race (short answer: nothing is lost, no manual
+recovery step is needed — every write goes to disk immediately, and this has
+been verified directly).
 
-Every write goes through `lib/store.js`, which serializes read-modify-write
-cycles per file so concurrent requests (e.g. multiple teachers checking in or
-recording finishes at the same instant) can never silently overwrite each
-other's changes. Because everything is written to disk immediately (not held
-only in server memory), a browser refresh, crash, or server restart never
-loses registration, results, check-in, or race-timer state — no manual
-recovery step is needed.
+To start a genuinely fresh event with none of the current data, use the
+lifecycle flow above (**Close → Archive → Create New**) rather than manually
+deleting/editing files in `data/` — this way the outgoing event's data is
+safely archived first instead of being silently lost.
 
 ## UI Design
 
@@ -369,12 +438,51 @@ diffused shadows, and rounded corners throughout.
   metric emulation) at 375px/768px/1400px widths — zero horizontal overflow
   on any of the 9 pages, zero console errors, zero failed network requests.
 
+## FAQ
+
+**Do I need to install anything besides Node.js?** No. Zero npm dependencies
+— clone the repo and run `node server.js`.
+
+**I forgot my password / an account is locked out.** There is no
+self-service password reset by design (to keep login simple) — the
+Administrator creates/fixes accounts via the API (`POST /api/auth/users`).
+See `docs/Admin Guide.md`.
+
+**Can several devices use the system at the same time?** Yes — see **Access
+from Other Devices (Same WiFi)** above. A typical race-day layout is one
+device each for registration, check-in, race control, and finish recording,
+plus a projector running the public leaderboard.
+
+**What happens if the server crashes or the computer restarts mid-race?**
+Nothing is lost — see `docs/Backup & Recovery.md`. Restart the server and
+reopen the browser; all data and your login session are exactly as they were.
+
+**How do I start a completely new event without losing this one's data?**
+Use the lifecycle flow: **Close → Archive → Create New** (see **Full Race
+Flow** above and `docs/Admin Guide.md`). Never manually delete files in
+`data/` for this — the lifecycle flow archives the outgoing event first.
+
+**Why CSV import/export instead of Excel or PDF?** To keep the project at
+zero npm dependencies — real `.xlsx`/PDF generation needs a library; CSV does
+not. See **Import / Export (CSV)** above.
+
+**Is this suitable for a large multi-day event or a database-backed
+deployment?** No — see **Notes / Limitations** below. It's built for a single
+race day on a local network, with JSON files as the only storage.
+
 ## Notes / Limitations (MVP scope)
 
-- No authentication — intended for trusted local/LAN use during the event only.
+- Session-based authentication with four roles (Administrator, School
+  Manager, Race Official, public read-only leaderboard) — see **Login &
+  Roles** above. This is a simple, self-hosted login system (no OAuth, no
+  cloud identity provider) intended for trusted local/LAN use during the
+  event, not a general-purpose multi-tenant deployment.
 - No RFID/chip-timing integration — finish time is derived from the category's
   server-recorded start time and the moment an official presses Finish, not
   from a physical sensor at the finish line.
 - A student can only have one recorded finish time (Finish Recording is
   idempotent; correcting a mistake requires deleting the result first via the
   "Batal" button, then finishing again).
+- Storage is flat JSON files with a per-file write queue, not a database —
+  appropriate at this system's scale (one race day, a handful of concurrent
+  devices on one LAN), not for high-volume or multi-region deployment.

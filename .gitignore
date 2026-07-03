@@ -1,7 +1,10 @@
 # Runtime data - regenerated automatically on first run (see lib/init-data.js).
-# Committing live race-day data (student names, results, etc.) to source
-# control doesn't make sense - it's state, not code.
-/data/*.json
+# Committing live race-day data (student names, results, password hashes,
+# etc.) to source control doesn't make sense - it's state, not code. This
+# ignores everything under data/, any file type, at any depth - including
+# archived event snapshots under data/archive/<timestamp>/, which hold the
+# exact same kind of real student data as the live files.
+/data/**
 
 # OS junk
 .DS_Store
