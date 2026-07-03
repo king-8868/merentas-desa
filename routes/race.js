@@ -1,16 +1,31 @@
 const store = require('../lib/store');
-const { CATEGORIES, RACE_STATUS_FILE } = require('../lib/config');
+const { CATEGORIES, RACE_STATUS_FILE, STUDENTS_FILE, RESULTS_FILE } = require('../lib/config');
+
+// Race state machine per category:
+//   NOT_STARTED -> RUNNING -> FINISHED
+// FINISHED is terminal within race control - once a category's race is
+// declared finished, its clock and results are locked. A full category
+// do-over is an Event Archive / Create New Event concern (out of scope here).
+function deriveState(entry) {
+  if (!entry || !entry.startTime) return 'NOT_STARTED';
+  if (entry.finishedAt) return 'FINISHED';
+  return 'RUNNING';
+}
 
 function buildStatus(raceStatus) {
   return CATEGORIES.map((cat) => {
     const entry = raceStatus[cat.code] || {};
-    const started = !!entry.startTime;
+    const state = deriveState(entry);
+    const started = state === 'RUNNING' || state === 'FINISHED'; // kept for backward compatibility
+    const clockEnd = state === 'FINISHED' ? entry.finishedAt : Date.now();
     return {
       code: cat.code,
       label: cat.label,
+      state,
       started,
       startTime: entry.startTime || null,
-      elapsedSeconds: started ? Math.floor((Date.now() - entry.startTime) / 1000) : null,
+      finishedAt: entry.finishedAt || null,
+      elapsedSeconds: started ? Math.floor((clockEnd - entry.startTime) / 1000) : null,
     };
   });
 }
@@ -31,7 +46,8 @@ function register(router) {
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
     await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
-      if (raceStatus[params.code] && raceStatus[params.code].startTime) {
+      const entry = raceStatus[params.code];
+      if (entry && entry.startTime) {
         return { data: raceStatus, result: null };
       }
       return {
@@ -44,12 +60,60 @@ function register(router) {
     sendJSON(res, 200, buildStatus(raceStatus).find((s) => s.code === params.code));
   });
 
+  // Marks a category's race as officially finished. Only valid from RUNNING
+  // - a race that never started can't be finished. Idempotent once FINISHED
+  // (calling it again is a no-op, not an error). After this, routes/results.js
+  // refuses to create, change, or delete results for this category.
+  router.add('POST', '/api/race-status/:code/finish', async (req, res, { params, sendJSON }) => {
+    const category = CATEGORIES.find((c) => c.code === params.code);
+    if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
+
+    let errorMsg = null;
+    await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
+      const entry = raceStatus[params.code];
+      const state = deriveState(entry);
+      if (state === 'FINISHED') return { data: raceStatus, result: null };
+      if (state === 'NOT_STARTED') {
+        errorMsg = `Perlumbaan kategori ${category.label} belum bermula - tidak boleh ditamatkan`;
+        return { data: raceStatus, result: null };
+      }
+      return {
+        data: { ...raceStatus, [params.code]: { ...entry, finishedAt: Date.now() } },
+        result: null,
+      };
+    });
+    if (errorMsg) return sendJSON(res, 400, { error: errorMsg });
+
+    const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
+    sendJSON(res, 200, buildStatus(raceStatus).find((s) => s.code === params.code));
+  });
+
   // Deliberate correction action (e.g. wrong category started by mistake).
-  // Clears the start time so the category can be started again. The UI
-  // must confirm before calling this - it is destructive to the current timer.
+  // Blocked once results exist for this category - clearing the start time
+  // while results still reference it would orphan them against a deleted
+  // clock (a conflicting-timestamp data integrity violation). Also blocked
+  // once FINISHED - that's a terminal state within race control.
   router.add('POST', '/api/race-status/:code/reset', async (req, res, { params, sendJSON }) => {
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
+
+    const currentRaceStatus = store.readJSON(RACE_STATUS_FILE, {});
+    const state = deriveState(currentRaceStatus[params.code]);
+    if (state === 'FINISHED') {
+      return sendJSON(res, 400, {
+        error: `Perlumbaan kategori ${category.label} telah tamat - tidak boleh reset`,
+      });
+    }
+
+    const students = store.readJSON(STUDENTS_FILE, []);
+    const results = store.readJSON(RESULTS_FILE, []);
+    const categoryBibs = new Set(students.filter((s) => s.categoryCode === params.code).map((s) => s.bib));
+    const hasResults = results.some((r) => categoryBibs.has(r.bib));
+    if (hasResults) {
+      return sendJSON(res, 400, {
+        error: `Terdapat keputusan direkodkan untuk kategori ${category.label} - padam keputusan tersebut dahulu sebelum reset`,
+      });
+    }
 
     await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
       const next = { ...raceStatus };
@@ -57,9 +121,9 @@ function register(router) {
       return { data: next, result: null };
     });
 
-    const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
-    sendJSON(res, 200, buildStatus(raceStatus).find((s) => s.code === params.code));
+    const updatedRaceStatus = store.readJSON(RACE_STATUS_FILE, {});
+    sendJSON(res, 200, buildStatus(updatedRaceStatus).find((s) => s.code === params.code));
   });
 }
 
-module.exports = { register, buildStatus };
+module.exports = { register, buildStatus, deriveState };

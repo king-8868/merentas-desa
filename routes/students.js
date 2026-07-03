@@ -1,7 +1,8 @@
 const store = require('../lib/store');
-const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE } = require('../lib/config');
+const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE } = require('../lib/config');
 const { generateBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
+const { deriveState } = require('./race');
 
 function register(router) {
   router.add('GET', '/api/students', async (req, res, { query, sendJSON }) => {
@@ -99,8 +100,27 @@ function register(router) {
     sendJSON(res, 200, { imported, errors });
   });
 
+  // Blocked if this student has a result in a FINISHED category - deleting
+  // the student would cascade-delete their result too, silently bypassing
+  // the "results are immutable after FINISHED" rule in routes/results.js.
   router.add('DELETE', '/api/students/:bib', async (req, res, { params, sendJSON }) => {
     const { bib } = params;
+    const students = store.readJSON(STUDENTS_FILE, []);
+    const student = students.find((s) => s.bib === bib);
+    if (student) {
+      const results = store.readJSON(RESULTS_FILE, []);
+      const hasResult = results.some((r) => r.bib === bib);
+      if (hasResult) {
+        const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
+        const state = deriveState(raceStatus[student.categoryCode]);
+        if (state === 'FINISHED') {
+          const category = CATEGORIES.find((c) => c.code === student.categoryCode);
+          return sendJSON(res, 400, {
+            error: `Perlumbaan kategori ${category ? category.label : student.categoryCode} telah tamat - peserta dengan keputusan tidak boleh dipadam`,
+          });
+        }
+      }
+    }
     await store.update(STUDENTS_FILE, [], (students) => ({
       data: students.filter((s) => s.bib !== bib),
       result: null,

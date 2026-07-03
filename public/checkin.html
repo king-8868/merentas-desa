@@ -181,6 +181,7 @@ async function doCheckin(bib) {
 }
 
 async function undoCheckin(bib) {
+  if (!confirm('Batalkan pendaftaran masuk peserta ini?')) return;
   await fetchJSON(`/api/checkins/${encodeURIComponent(bib)}`, { method: 'DELETE' });
   await loadAll();
 }

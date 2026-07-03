@@ -24,6 +24,7 @@
   -webkit-backdrop-filter: blur(12px);
 }
 .race-status-chip.running { background: rgba(42, 157, 143, 0.12); border-color: var(--teal); }
+.race-status-chip.finished { background: rgba(29, 53, 87, 0.08); border-color: var(--navy); color: var(--navy); }
 .race-status-chip.stopped { background: rgba(214, 40, 40, 0.08); border-color: var(--red); color: #a83232; }
 .race-status-chip strong { display: block; font-size: 1rem; }
 </style>
@@ -107,12 +108,22 @@ function raceStatusMap() {
 function eligibility(student) {
   const checkedIn = checkinSet().has(student.bib);
   const rs = raceStatusMap().get(student.categoryCode);
-  const started = rs && rs.started;
-  const finished = resultMap().has(student.bib);
-  if (finished) return { ok: false, reason: 'Sudah tamat', finished: true };
+  const raceState = rs ? rs.state : 'NOT_STARTED';
+  const hasResult = resultMap().has(student.bib);
+  if (hasResult) return { ok: false, reason: 'Sudah tamat', finished: true };
   if (!checkedIn) return { ok: false, reason: 'Belum daftar masuk', finished: false };
-  if (!started) return { ok: false, reason: 'Perlumbaan belum bermula', finished: false };
+  if (raceState === 'NOT_STARTED') return { ok: false, reason: 'Perlumbaan belum bermula', finished: false };
+  if (raceState === 'FINISHED') return { ok: false, reason: 'Perlumbaan telah tamat', finished: false };
   return { ok: true, reason: '', finished: false };
+}
+
+// A recorded result can only be undone (deleted) while its category's race
+// is still RUNNING - once the race is FINISHED, results are locked (see
+// routes/results.js). Hiding the button here matches the server-side rule
+// instead of letting the user hit an error after clicking.
+function canUndoFinish(student) {
+  const rs = raceStatusMap().get(student.categoryCode);
+  return !rs || rs.state !== 'FINISHED';
 }
 
 async function loadAll() {
@@ -130,12 +141,20 @@ async function loadAll() {
 }
 
 function renderRaceStrip() {
-  document.getElementById('raceStrip').innerHTML = RACE_STATUS.map((s) => `
-    <div class="race-status-chip ${s.started ? 'running' : 'stopped'}">
-      <strong>${s.label}</strong>
-      ${s.started ? `Berjalan - ${formatTime(s.elapsedSeconds)}` : 'Belum bermula'}
-    </div>
-  `).join('');
+  document.getElementById('raceStrip').innerHTML = RACE_STATUS.map((s) => {
+    const chipClass = s.state === 'RUNNING' ? 'running' : s.state === 'FINISHED' ? 'finished' : 'stopped';
+    const text = s.state === 'RUNNING'
+      ? `Berjalan - ${formatTime(s.elapsedSeconds)}`
+      : s.state === 'FINISHED'
+        ? `Tamat - ${formatTime(s.elapsedSeconds)}`
+        : 'Belum bermula';
+    return `
+      <div class="race-status-chip ${chipClass}">
+        <strong>${s.label}</strong>
+        ${text}
+      </div>
+    `;
+  }).join('');
 }
 
 async function getRankInfo(bib, categoryCode) {
@@ -165,7 +184,7 @@ function renderRecent() {
         <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
         <td>${formatTime(r.time)}</td>
         <td id="rank-${s.bib}">...</td>
-        <td><button class="danger" onclick="undoFinish('${s.bib}')">Batal</button></td>
+        <td>${canUndoFinish(s) ? `<button class="danger" onclick="undoFinish('${s.bib}')">Batal</button>` : '<span class="empty">Dikunci</span>'}</td>
       </tr>
     `;
   }).join('');
@@ -209,7 +228,7 @@ function renderAllList() {
         <td>${checkedInSet.has(s.bib) ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
         <td>${finished ? formatTime(finishedMap.get(s.bib)) : '<span class="empty">Belum tamat</span>'}</td>
         <td>${finished
-          ? `<button class="danger" onclick="undoFinish('${s.bib}')">Batal</button>`
+          ? (canUndoFinish(s) ? `<button class="danger" onclick="undoFinish('${s.bib}')">Batal</button>` : '<span class="empty">Dikunci</span>')
           : elig.ok
             ? `<button onclick="doFinish('${s.bib}')">Selesai</button>`
             : `<button disabled title="${elig.reason}">${elig.reason}</button>`}</td>
@@ -237,7 +256,11 @@ async function doFinish(bib) {
 
 async function undoFinish(bib) {
   if (!confirm('Batalkan rekod tamat peserta ini?')) return;
-  await fetchJSON(`/api/results/${encodeURIComponent(bib)}`, { method: 'DELETE' });
+  try {
+    await fetchJSON(`/api/results/${encodeURIComponent(bib)}`, { method: 'DELETE' });
+  } catch (err) {
+    alert(err.message);
+  }
   await loadAll();
 }
 

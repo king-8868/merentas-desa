@@ -1,5 +1,17 @@
 const store = require('../lib/store');
 const { STUDENTS_FILE, RESULTS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, CATEGORIES } = require('../lib/config');
+const { deriveState } = require('./race');
+
+function getCategoryStatus(categoryCode) {
+  const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
+  const entry = raceStatus[categoryCode];
+  return { entry, state: deriveState(entry) };
+}
+
+function categoryLabel(categoryCode) {
+  const category = CATEGORIES.find((c) => c.code === categoryCode);
+  return category ? category.label : categoryCode;
+}
 
 function register(router) {
   router.add('GET', '/api/results', async (req, res, { sendJSON }) => {
@@ -10,6 +22,9 @@ function register(router) {
   // Not used by the main Finish Recording UI - that flow always goes through
   // POST /api/results/finish below, per RULES.md: teachers never calculate or
   // enter finish time manually.
+  // Create-only: never silently overwrites an existing timestamp. Correcting
+  // a mistake requires DELETE /api/results/:bib first, then a fresh POST -
+  // an explicit two-step action instead of a silent single-step overwrite.
   router.add('POST', '/api/results', async (req, res, { sendJSON, parseBody }) => {
     const body = await parseBody(req);
     const { bib, time } = body;
@@ -17,18 +32,29 @@ function register(router) {
       return sendJSON(res, 400, { error: 'bib and a valid time (seconds) are required' });
     }
     const students = store.readJSON(STUDENTS_FILE, []);
-    if (!students.find((s) => s.bib === bib)) {
+    const student = students.find((s) => s.bib === bib);
+    if (!student) {
       return sendJSON(res, 404, { error: 'Student (bib) not found' });
     }
-    await store.update(RESULTS_FILE, [], (results) => {
-      const existing = results.find((r) => r.bib === bib);
-      if (existing) {
-        existing.time = time;
-        existing.recordedAt = Date.now();
-        return { data: results, result: null };
-      }
-      return { data: [...results, { bib, time, recordedAt: Date.now() }], result: null };
-    });
+
+    const { state } = getCategoryStatus(student.categoryCode);
+    if (state === 'FINISHED') {
+      return sendJSON(res, 400, {
+        error: `Perlumbaan kategori ${categoryLabel(student.categoryCode)} telah tamat - keputusan tidak boleh diubah`,
+      });
+    }
+
+    const existing = store.readJSON(RESULTS_FILE, []).find((r) => r.bib === bib);
+    if (existing) {
+      return sendJSON(res, 400, {
+        error: 'Keputusan sudah wujud untuk peserta ini - padam keputusan sedia ada dahulu sebelum merekod semula',
+      });
+    }
+
+    await store.update(RESULTS_FILE, [], (results) => ({
+      data: [...results, { bib, time, recordedAt: Date.now() }],
+      result: null,
+    }));
     sendJSON(res, 200, { ok: true });
   });
 
@@ -38,7 +64,7 @@ function register(router) {
   // Guards, per RULES.md:
   //  - the bib must exist
   //  - the participant must be checked in (routes/checkins.js)
-  //  - that category's race must have been started (routes/race.js)
+  //  - that category's race must be RUNNING (not NOT_STARTED, not FINISHED)
   // Idempotent like check-in/race-start: pressing Finish again for an
   // already-finished bib returns the original result untouched, rather than
   // overwriting a real finish with a later, meaningless timestamp.
@@ -60,12 +86,15 @@ function register(router) {
       return sendJSON(res, 400, { error: 'Peserta belum daftar masuk - tidak boleh direkodkan tamat' });
     }
 
-    const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
-    const categoryStatus = raceStatus[student.categoryCode];
-    if (!categoryStatus || !categoryStatus.startTime) {
-      const category = CATEGORIES.find((c) => c.code === student.categoryCode);
+    const { entry: categoryStatus, state } = getCategoryStatus(student.categoryCode);
+    if (state === 'NOT_STARTED') {
       return sendJSON(res, 400, {
-        error: `Perlumbaan kategori ${category ? category.label : student.categoryCode} belum bermula`,
+        error: `Perlumbaan kategori ${categoryLabel(student.categoryCode)} belum bermula`,
+      });
+    }
+    if (state === 'FINISHED') {
+      return sendJSON(res, 400, {
+        error: `Perlumbaan kategori ${categoryLabel(student.categoryCode)} telah tamat - tidak boleh merekod peserta baru`,
       });
     }
 
@@ -81,8 +110,20 @@ function register(router) {
     sendJSON(res, 201, { ...finishResult, student });
   });
 
+  // Blocked once the participant's category race is FINISHED - a recorded
+  // result becomes immutable at that point (see routes/race.js's /finish).
   router.add('DELETE', '/api/results/:bib', async (req, res, { params, sendJSON }) => {
     const { bib } = params;
+    const students = store.readJSON(STUDENTS_FILE, []);
+    const student = students.find((s) => s.bib === bib);
+    if (student) {
+      const { state } = getCategoryStatus(student.categoryCode);
+      if (state === 'FINISHED') {
+        return sendJSON(res, 400, {
+          error: `Perlumbaan kategori ${categoryLabel(student.categoryCode)} telah tamat - keputusan tidak boleh dipadam`,
+        });
+      }
+    }
     await store.update(RESULTS_FILE, [], (results) => ({
       data: results.filter((r) => r.bib !== bib),
       result: null,

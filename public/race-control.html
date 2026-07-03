@@ -28,6 +28,18 @@
   color: var(--navy);
 }
 .race-timer.not-started { color: #aaa; font-size: 2rem; }
+.race-timer.finished { color: var(--teal); }
+.finished-badge {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 980px;
+  background: rgba(42, 157, 143, 0.15);
+  color: var(--teal);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.finish-btn { background: var(--red); box-shadow: 0 2px 10px rgba(214, 40, 40, 0.3); }
+.finish-btn:hover { background: #a81f1f; box-shadow: 0 4px 16px rgba(214, 40, 40, 0.4); }
 .race-meta { color: var(--text-secondary); font-size: 0.85rem; }
 .race-grid {
   display: grid;
@@ -64,7 +76,7 @@
 <main>
   <div class="card">
     <h2 class="section-title">Kawalan Perlumbaan</h2>
-    <p class="hint">Setiap kategori mempunyai jam perlumbaan sendiri, berjalan secara berasingan. Tekan Mula untuk memulakan kategori tersebut - masa direkodkan oleh pelayan dan kekal walaupun pelayar/komputer dimulakan semula.</p>
+    <p class="hint">Setiap kategori mempunyai jam perlumbaan sendiri, berjalan secara berasingan. Tekan Mula untuk memulakan kategori tersebut - masa direkodkan oleh pelayan dan kekal walaupun pelayar/komputer dimulakan semula. Selepas semua peserta selesai, tekan Tamatkan Perlumbaan untuk mengunci keputusan kategori tersebut secara kekal.</p>
     <div class="race-grid" id="raceGrid"></div>
   </div>
 </main>
@@ -81,7 +93,23 @@ function formatElapsed(totalSeconds) {
 }
 
 async function startCategory(code) {
-  await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/start`, { method: 'POST' });
+  try {
+    await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/start`, { method: 'POST' });
+  } catch (err) {
+    alert(err.message);
+  }
+  await load();
+}
+
+async function finishCategory(code, label) {
+  if (!confirm(`Tamatkan perlumbaan ${label}? Selepas ini, tiada peserta baru boleh direkodkan tamat dan keputusan sedia ada tidak boleh diubah/dipadam.`)) {
+    return;
+  }
+  try {
+    await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/finish`, { method: 'POST' });
+  } catch (err) {
+    alert(err.message);
+  }
   await load();
 }
 
@@ -89,14 +117,18 @@ async function resetCategory(code, label) {
   if (!confirm(`Reset jam untuk ${label}? Ini akan memadam masa mula semasa - hanya lakukan ini jika kategori dimulakan secara tersilap.`)) {
     return;
   }
-  await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/reset`, { method: 'POST' });
+  try {
+    await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/reset`, { method: 'POST' });
+  } catch (err) {
+    alert(err.message);
+  }
   await load();
 }
 
 function render(statuses) {
   const grid = document.getElementById('raceGrid');
   grid.innerHTML = statuses.map((s) => {
-    if (!s.started) {
+    if (s.state === 'NOT_STARTED') {
       return `
         <div class="race-card">
           <h3>${s.label}</h3>
@@ -106,11 +138,23 @@ function render(statuses) {
       `;
     }
     const startedAt = new Date(s.startTime).toLocaleTimeString('ms-MY');
+    if (s.state === 'FINISHED') {
+      const finishedAt = new Date(s.finishedAt).toLocaleTimeString('ms-MY');
+      return `
+        <div class="race-card">
+          <h3>${s.label}</h3>
+          <div class="finished-badge">Perlumbaan Tamat</div>
+          <div class="race-timer finished">${formatElapsed(s.elapsedSeconds)}</div>
+          <div class="race-meta">Bermula: ${startedAt} &middot; Tamat: ${finishedAt}</div>
+        </div>
+      `;
+    }
     return `
       <div class="race-card">
         <h3>${s.label}</h3>
         <div class="race-timer">${formatElapsed(s.elapsedSeconds)}</div>
         <div class="race-meta">Bermula: ${startedAt}</div>
+        <button class="finish-btn" onclick="finishCategory('${s.code}', '${s.label}')">Tamatkan Perlumbaan</button>
         <button class="danger" onclick="resetCategory('${s.code}', '${s.label}')">Reset</button>
       </div>
     `;
