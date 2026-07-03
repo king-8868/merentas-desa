@@ -69,13 +69,47 @@ cd merentas-desa
 node server.js
 ```
 
-Then open **http://localhost:3000** in your browser.
+Then open **http://localhost:3000** in your browser. You'll land on the login
+page - see **Login & Roles** below for the default accounts.
 
 (Optional) `npm start` runs the same command. To use a different port:
 
 ```bash
 PORT=8080 node server.js
 ```
+
+## Login & Roles
+
+Every page except **Papan Markah Langsung** (`leaderboard.html`, the public
+projector display) requires logging in. Four roles, enforced on the backend
+(not just hidden in the UI):
+
+| Role | Username | Default Password | Can access |
+|---|---|---|---|
+| Administrator | `admin` | `admin2026` | Everything |
+| School Manager | school code (`TK`, `SL`, `HU`, `YC`, `CU`, `NS`, `KK`, `NK`, `SM`, or `NP`) | `<CODE>2026` (e.g. `TK2026`) | Register/view/delete **only their own school's** participants; view rankings/leaderboard |
+| Race Official | `official` | `official2026` | Check-in, Race Control, Finish Recording, view (not edit) the participant list |
+| Public Display | *(none)* | *(none)* | `leaderboard.html` only, no login |
+
+**Every default account must change its password on first login** - the
+server redirects straight to a change-password screen and blocks every other
+action until that's done. There's no way to skip this.
+
+School data isolation is enforced server-side: `GET /api/students` returns
+only a School Manager's own school when they're logged in (not filtered
+client-side), and every write endpoint (`POST`/`DELETE /api/students`, CSV
+import) re-checks and forces their `schoolCode` regardless of what the
+request claims.
+
+The data model (`data/users.json`, gitignored - never committed, since it
+holds password hashes) doesn't assume there's only one account per role: an
+admin can create more via `POST /api/auth/users` (e.g. a second Race Official
+for a larger event) with no code changes needed.
+
+Passwords are hashed with Node's built-in `crypto.scrypt` (no dependency).
+Sessions are a random token in an `HttpOnly` cookie, persisted to
+`data/sessions.json` (survives a server restart, consistent with this
+project's Recovery Mode design), expiring after 12 hours.
 
 ## Access from Other Devices (Same WiFi)
 

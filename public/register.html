@@ -26,7 +26,7 @@
   </nav>
 </header>
 <main>
-  <div class="card">
+  <div class="card" id="registerCard">
     <h2 class="section-title">Daftar Peserta Baharu</h2>
     <form id="regForm">
       <label>Nama Peserta</label>
@@ -46,7 +46,7 @@
     <div id="bibResult"></div>
     <p id="msg"></p>
   </div>
-  <div class="card">
+  <div class="card" id="importCard">
     <h2 class="section-title">Import Peserta Secara Pukal (CSV)</h2>
     <p class="hint">Fail CSV mesti mempunyai lajur: <strong>name, schoolCode, categoryCode</strong> (susunan lajur bebas). Setiap baris diproses berasingan - jika satu baris salah, baris lain tetap berjaya diimport.</p>
     <input type="file" id="csvFile" accept=".csv,text/csv">
@@ -74,6 +74,7 @@
 let SCHOOLS = [];
 let CATEGORIES = [];
 let STUDENTS = [];
+let CURRENT_USER = null;
 
 async function loadOptions() {
   [SCHOOLS, CATEGORIES] = await Promise.all([
@@ -81,8 +82,14 @@ async function loadOptions() {
     fetchJSON('/api/categories'),
   ]);
 
+  // A School Manager can only ever register into their own school - the
+  // backend forces this too (routes/students.js), but locking the picker
+  // here avoids a confusing "you picked X but it registered as Y" moment.
+  const schoolOptions = CURRENT_USER && CURRENT_USER.role === 'school'
+    ? SCHOOLS.filter((s) => s.code === CURRENT_USER.schoolCode)
+    : SCHOOLS;
   document.getElementById('school').innerHTML =
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
+    schoolOptions.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
   document.getElementById('category').innerHTML =
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 
@@ -109,13 +116,14 @@ function renderStudents() {
     tbody.innerHTML = '<tr><td colspan="5" class="empty">Tiada peserta berdaftar.</td></tr>';
     return;
   }
+  const canManage = !CURRENT_USER || CURRENT_USER.role !== 'official';
   tbody.innerHTML = list.map((s) => `
     <tr>
       <td><strong>${s.bib}</strong></td>
       <td>${escapeHTML(s.name)}</td>
       <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
       <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
-      <td><button class="danger" onclick="deleteStudent('${s.bib}')">Padam</button></td>
+      <td>${canManage ? `<button class="danger" onclick="deleteStudent('${s.bib}')">Padam</button>` : ''}</td>
     </tr>
   `).join('');
 }
@@ -222,7 +230,17 @@ document.getElementById('regForm').addEventListener('submit', async (e) => {
   }
 });
 
-loadOptions().then(loadStudents);
+requireLogin(['admin', 'school', 'official']).then((user) => {
+  if (!user) return;
+  CURRENT_USER = user;
+  // Race Official gets "view participant list" only - no add/import/delete
+  // (see RULES.md-derived spec: officials cannot edit students or delete data).
+  if (user.role === 'official') {
+    document.getElementById('registerCard').style.display = 'none';
+    document.getElementById('importCard').style.display = 'none';
+  }
+  loadOptions().then(loadStudents);
+});
 </script>
 </body>
 </html>

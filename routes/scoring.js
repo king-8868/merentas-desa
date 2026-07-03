@@ -1,5 +1,6 @@
 const store = require('../lib/store');
 const { SCORING_CONFIG_FILE } = require('../lib/config');
+const { requireAuth } = require('../lib/auth');
 
 function validate(body) {
   const { pointsTable, topNPerSchool } = body;
@@ -17,6 +18,8 @@ function validate(body) {
 
 function register(router) {
   router.add('GET', '/api/scoring-config', async (req, res, { sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin']);
+    if (!user) return;
     sendJSON(res, 200, store.readJSON(SCORING_CONFIG_FILE, { pointsTable: [], topNPerSchool: 5 }));
   });
 
@@ -25,6 +28,9 @@ function register(router) {
   // routes/rankings.js reads it fresh on every request, so a change here
   // takes effect immediately, no restart needed.
   router.add('PUT', '/api/scoring-config', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin']);
+    if (!user) return;
+
     const body = await parseBody(req);
     const error = validate(body);
     if (error) return sendJSON(res, 400, { error });

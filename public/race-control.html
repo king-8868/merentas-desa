@@ -166,8 +166,11 @@ async function load() {
   render(statuses);
 }
 
-load();
-setInterval(load, 1000);
+requireLogin(['admin', 'official']).then((user) => {
+  if (!user) return;
+  load();
+  setInterval(load, 1000);
+});
 </script>
 </body>
 </html>

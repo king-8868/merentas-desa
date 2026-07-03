@@ -1,8 +1,11 @@
 const store = require('../lib/store');
 const { STUDENTS_FILE, CHECKINS_FILE } = require('../lib/config');
+const { requireAuth } = require('../lib/auth');
 
 function register(router) {
   router.add('GET', '/api/checkins', async (req, res, { sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
     sendJSON(res, 200, store.readJSON(CHECKINS_FILE, []));
   });
 
@@ -10,6 +13,9 @@ function register(router) {
   // existing record (no error) - a teacher double-tapping or a barcode
   // scanner double-firing should never surface an error on race day.
   router.add('POST', '/api/checkins', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
+
     const body = await parseBody(req);
     const { bib } = body;
     if (!bib) {
@@ -31,6 +37,9 @@ function register(router) {
   });
 
   router.add('DELETE', '/api/checkins/:bib', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
+
     const { bib } = params;
     await store.update(CHECKINS_FILE, [], (checkins) => ({
       data: checkins.filter((c) => c.bib !== bib),

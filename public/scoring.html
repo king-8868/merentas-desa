@@ -100,7 +100,7 @@ async function save() {
   }
 }
 
-load();
+requireLogin(['admin']).then((user) => { if (user) load(); });
 </script>
 </body>
 </html>

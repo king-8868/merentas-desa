@@ -3,10 +3,20 @@ const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RA
 const { generateBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
 const { deriveState } = require('./race');
+const { getSessionUser, requireAuth } = require('../lib/auth');
 
 function register(router) {
+  // Public (needed by the public leaderboard) - but if a School Manager
+  // happens to be logged in, the response is scoped to their own school.
+  // This is what actually enforces "cannot access other schools' data": the
+  // frontend never even receives other schools' students, it isn't just
+  // hiding them with CSS.
   router.add('GET', '/api/students', async (req, res, { query, sendJSON }) => {
     let students = store.readJSON(STUDENTS_FILE, []);
+    const sessionUser = getSessionUser(req);
+    if (sessionUser && sessionUser.role === 'school') {
+      students = students.filter((s) => s.schoolCode === sessionUser.schoolCode);
+    }
     const school = query.get('school');
     const category = query.get('category');
     if (school) students = students.filter((s) => s.schoolCode === school);
@@ -14,9 +24,20 @@ function register(router) {
     sendJSON(res, 200, students);
   });
 
+  // Admin can register for any school. A School Manager can only register
+  // for their own school - schoolCode is forced server-side regardless of
+  // what the request body says, so a tampered request can't register into
+  // another school.
   router.add('POST', '/api/students', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    if (!user) return;
+
     const body = await parseBody(req);
-    const { name, schoolCode, categoryCode } = body;
+    const { name, categoryCode } = body;
+    let { schoolCode } = body;
+    if (user.role === 'school') {
+      schoolCode = user.schoolCode;
+    }
     if (!name || !schoolCode || !categoryCode) {
       return sendJSON(res, 400, { error: 'name, schoolCode and categoryCode are required' });
     }
@@ -49,8 +70,13 @@ function register(router) {
   // independently, so one bad row (typo'd school code, etc.) doesn't block
   // the rest of a large import - the response reports exactly which rows
   // succeeded (with their new bib) and which failed (with a reason), so the
-  // office can fix and re-import just the failed rows.
+  // office can fix and re-import just the failed rows. A School Manager's
+  // rows are all forced to their own school - other schools' rows in the
+  // same file become errors, not silent corrections.
   router.add('POST', '/api/students/import', async (req, res, { sendJSON, parseRawBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    if (!user) return;
+
     const text = await parseRawBody(req);
     const { headers, rows } = parseCSV(text);
 
@@ -73,6 +99,13 @@ function register(router) {
 
       if (!name) {
         errors.push({ row: rowNum, reason: 'Nama diperlukan' });
+        continue;
+      }
+      if (user.role === 'school' && schoolCode !== user.schoolCode) {
+        errors.push({
+          row: rowNum,
+          reason: `Baris ini untuk sekolah lain ("${schoolCode}") - akaun anda hanya boleh import untuk ${user.schoolCode}`,
+        });
         continue;
       }
       if (!schools.find((s) => s.code === schoolCode)) {
@@ -100,14 +133,22 @@ function register(router) {
     sendJSON(res, 200, { imported, errors });
   });
 
-  // Blocked if this student has a result in a FINISHED category - deleting
-  // the student would cascade-delete their result too, silently bypassing
-  // the "results are immutable after FINISHED" rule in routes/results.js.
+  // Admin can delete any student. A School Manager can only delete their own
+  // school's students. Also blocked if this student has a result in a
+  // FINISHED category - deleting the student would cascade-delete their
+  // result too, silently bypassing the "results are immutable after
+  // FINISHED" rule in routes/results.js.
   router.add('DELETE', '/api/students/:bib', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    if (!user) return;
+
     const { bib } = params;
     const students = store.readJSON(STUDENTS_FILE, []);
     const student = students.find((s) => s.bib === bib);
     if (student) {
+      if (user.role === 'school' && student.schoolCode !== user.schoolCode) {
+        return sendJSON(res, 403, { error: 'Anda hanya boleh memadam peserta sekolah anda sendiri' });
+      }
       const results = store.readJSON(RESULTS_FILE, []);
       const hasResult = results.some((r) => r.bib === bib);
       if (hasResult) {

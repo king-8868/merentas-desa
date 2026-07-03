@@ -1,5 +1,6 @@
 const store = require('../lib/store');
 const { CATEGORIES, RACE_STATUS_FILE, STUDENTS_FILE, RESULTS_FILE } = require('../lib/config');
+const { requireAuth } = require('../lib/auth');
 
 // Race state machine per category:
 //   NOT_STARTED -> RUNNING -> FINISHED
@@ -32,6 +33,8 @@ function buildStatus(raceStatus) {
 
 function register(router) {
   router.add('GET', '/api/race-status', async (req, res, { sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
     const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
     sendJSON(res, 200, buildStatus(raceStatus));
   });
@@ -42,6 +45,8 @@ function register(router) {
   // original clock - exactly the kind of race-day data corruption the
   // write-safety design in lib/store.js exists to prevent.
   router.add('POST', '/api/race-status/:code/start', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
@@ -65,6 +70,8 @@ function register(router) {
   // (calling it again is a no-op, not an error). After this, routes/results.js
   // refuses to create, change, or delete results for this category.
   router.add('POST', '/api/race-status/:code/finish', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
@@ -94,6 +101,8 @@ function register(router) {
   // clock (a conflicting-timestamp data integrity violation). Also blocked
   // once FINISHED - that's a terminal state within race control.
   router.add('POST', '/api/race-status/:code/reset', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 

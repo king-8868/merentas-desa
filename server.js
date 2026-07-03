@@ -18,6 +18,7 @@ process.on('unhandledRejection', (err) => {
 });
 
 const router = new Router();
+require('./routes/auth').register(router);
 require('./routes/schools').register(router);
 require('./routes/categories').register(router);
 require('./routes/students').register(router);

@@ -48,18 +48,25 @@
 <script src="app.js"></script>
 <script>
 async function load() {
+  // /api/checkins is admin/official only (see routes/checkins.js) - a
+  // School Manager can still view this dashboard, just without that one
+  // stat, rather than the whole page failing to load. null (not []) marks
+  // "not visible to this role" so it's hidden, not shown as a misleading 0.
   const [schools, categories, students, results, checkins] = await Promise.all([
     fetchJSON('/api/schools'),
     fetchJSON('/api/categories'),
     fetchJSON('/api/students'),
     fetchJSON('/api/results'),
-    fetchJSON('/api/checkins'),
+    fetchJSON('/api/checkins').catch(() => null),
   ]);
 
+  const checkinsStat = checkins
+    ? `<div class="stat-box" style="background:#8ab17d"><h3>${checkins.length}</h3><p>Sudah Daftar Masuk</p></div>`
+    : '';
   document.getElementById('summary').innerHTML = `
     <div class="stat-box"><h3>${schools.length}</h3><p>Sekolah</p></div>
     <div class="stat-box" style="background:#457b9d"><h3>${students.length}</h3><p>Peserta Berdaftar</p></div>
-    <div class="stat-box" style="background:#8ab17d"><h3>${checkins.length}</h3><p>Sudah Daftar Masuk</p></div>
+    ${checkinsStat}
     <div class="stat-box" style="background:#2a9d8f"><h3>${results.length}</h3><p>Masa Direkod</p></div>
     <div class="stat-box" style="background:#d62828"><h3>${students.length - results.length}</h3><p>Belum Selesai</p></div>
   `;
@@ -74,7 +81,7 @@ async function load() {
     return `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>${count}</td></tr>`;
   }).join('');
 }
-load();
+requireLogin(['admin', 'school', 'official']).then((user) => { if (user) load(); });
 </script>
 </body>
 </html>

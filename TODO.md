@@ -87,3 +87,46 @@ Phase 8 - UI Polish
     check-in, race start, finish recording, rankings all still work correctly
 [x] Verified zero console errors / zero failed network requests across all
     9 pages via Chrome DevTools Protocol
+
+=== Version 1.0 Stable (tag: v1.0.0-stable) ===
+
+Version 1.1 - Production Ready
+
+Phase 1.1-A - XSS Security Fix
+[x] escapeHTML() added to app.js, applied to every innerHTML interpolation of
+    user-supplied text (names, CSV import error echoes) across 8 pages.
+    Verified live with a real <img onerror=...> payload - renders as literal
+    text, no script execution, no alert() dialog.
+
+Phase 1.1-B - LAN Multi-device Access
+[x] Verified server already binds to all interfaces by default (no code
+    change needed) - added LAN IP auto-detection (os.networkInterfaces()) and
+    startup console output showing both Local and Network URLs, plus README
+    docs on connecting from other devices on the same WiFi.
+
+Phase 1.1-C - Race Safety & Integrity Layer
+[x] Added the missing FINISHED race state (previously only NOT_STARTED/
+    RUNNING existed) - NOT_STARTED -> RUNNING -> FINISHED, with FINISHED
+    locking all result mutation (finish, manual override, delete) for that
+    category, and blocking Reset once results exist (prevents orphaning them
+    against a deleted clock reference).
+[x] Fixed a real gap: checkin.html's undo check-in had no confirmation dialog.
+[x] Verified idempotency of check-in/finish (already existed from Phase 2/4).
+
+Phase 1.1-D - Login + Role-Based Access Control
+[x] Session-based auth (crypto.scrypt password hashing, HttpOnly cookie
+    sessions persisted to data/sessions.json, no OAuth/cloud dependency).
+[x] Four roles: admin (full access), school (own-school-only student
+    management, enforced server-side not just hidden in the UI), official
+    (check-in/race-control/finish, view-only participant list), public
+    (leaderboard.html, unauthenticated, unchanged).
+[x] Every default account forced to change password on first login.
+[x] User data model (data/users.json) supports multiple accounts per role
+    from day one (plain array + role field) - POST /api/auth/users lets an
+    admin add more without any redesign (Version 1.1 ships with one official
+    account, per the approved plan).
+[x] Verified: login for all 4 roles, school data isolation (a School Manager
+    only ever sees/touches their own school, confirmed via a live cross-school
+    write attempt that got silently corrected server-side), Race Official
+    blocked from registration/deletion, public leaderboard fully functional
+    with zero cookies/session.

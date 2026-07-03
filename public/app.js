@@ -84,3 +84,67 @@ function downloadCSV(filename, csvContent) {
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// Which nav links each role gets to see. Backend routes are the real
+// enforcement (see lib/auth.js's requireAuth) - this only keeps the menu
+// from offering pages/actions a role can't use.
+const NAV_VISIBILITY = {
+  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html'],
+  school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
+  official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
+};
+
+function applyNavVisibility(role) {
+  const allowed = NAV_VISIBILITY[role] || [];
+  document.querySelectorAll('nav a').forEach((a) => {
+    const href = a.getAttribute('href');
+    if (href === 'leaderboard.html') return; // always visible, always public
+    a.style.display = allowed.includes(href) ? '' : 'none';
+  });
+}
+
+function addLogoutLink() {
+  const nav = document.querySelector('nav');
+  if (!nav || nav.querySelector('.logout-link')) return;
+  const link = document.createElement('a');
+  link.href = '#';
+  link.className = 'logout-link';
+  link.textContent = 'Log Keluar';
+  link.style.marginLeft = 'auto';
+  link.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = 'login.html';
+  });
+  nav.appendChild(link);
+}
+
+// Call at the top of every protected page's script, before any data
+// loading. Redirects to login.html if not authenticated, to
+// change-password.html if the account still has the forced first-login
+// password change pending, or to index.html if logged in but this page's
+// role isn't in allowedRoles. Returns the session user on success (the page
+// can use it for further per-role UI adjustments, e.g. register.html hiding
+// the school picker for a School Manager).
+async function requireLogin(allowedRoles) {
+  let user;
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) throw new Error('not logged in');
+    user = await res.json();
+  } catch (err) {
+    window.location.href = 'login.html';
+    return null;
+  }
+  if (user.mustChangePassword) {
+    window.location.href = 'change-password.html';
+    return null;
+  }
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    window.location.href = 'index.html';
+    return null;
+  }
+  applyNavVisibility(user.role);
+  addLogoutLink();
+  return user;
+}

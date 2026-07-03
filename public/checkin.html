@@ -249,8 +249,11 @@ document.getElementById('filterSchool').addEventListener('change', renderAllList
 document.getElementById('filterCategory').addEventListener('change', renderAllList);
 document.getElementById('filterStatus').addEventListener('change', renderAllList);
 
-loadAll().then(renderFilterOptions);
-searchInput.focus();
+requireLogin(['admin', 'official']).then((user) => {
+  if (!user) return;
+  loadAll().then(renderFilterOptions);
+  searchInput.focus();
+});
 </script>
 </body>
 </html>

@@ -1,6 +1,7 @@
 const store = require('../lib/store');
 const { STUDENTS_FILE, RESULTS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, CATEGORIES } = require('../lib/config');
 const { deriveState } = require('./race');
+const { requireAuth } = require('../lib/auth');
 
 function getCategoryStatus(categoryCode) {
   const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
@@ -26,6 +27,9 @@ function register(router) {
   // a mistake requires DELETE /api/results/:bib first, then a fresh POST -
   // an explicit two-step action instead of a silent single-step overwrite.
   router.add('POST', '/api/results', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin']);
+    if (!user) return;
+
     const body = await parseBody(req);
     const { bib, time } = body;
     if (!bib || typeof time !== 'number' || !(time > 0)) {
@@ -69,6 +73,9 @@ function register(router) {
   // already-finished bib returns the original result untouched, rather than
   // overwriting a real finish with a later, meaningless timestamp.
   router.add('POST', '/api/results/finish', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
+
     const body = await parseBody(req);
     const { bib } = body;
     if (!bib) {
@@ -113,6 +120,9 @@ function register(router) {
   // Blocked once the participant's category race is FINISHED - a recorded
   // result becomes immutable at that point (see routes/race.js's /finish).
   router.add('DELETE', '/api/results/:bib', async (req, res, { params, sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    if (!user) return;
+
     const { bib } = params;
     const students = store.readJSON(STUDENTS_FILE, []);
     const student = students.find((s) => s.bib === bib);

@@ -1,14 +1,18 @@
 const store = require('../lib/store');
 const { SCHOOLS_FILE } = require('../lib/config');
+const { requireAuth } = require('../lib/auth');
 
 const CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
 
 function register(router) {
+  // Public - the leaderboard (no login) needs the school list too.
   router.add('GET', '/api/schools', async (req, res, { sendJSON }) => {
     sendJSON(res, 200, store.readJSON(SCHOOLS_FILE, []));
   });
 
   router.add('POST', '/api/schools', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin']);
+    if (!user) return;
     const body = await parseBody(req);
     const { code, name } = body;
     if (!code || !name) {
@@ -37,6 +41,8 @@ function register(router) {
   // it's baked into every bib number and counter key already issued for that
   // school, so changing it would silently orphan historical data.
   router.add('PUT', '/api/schools/:code', async (req, res, { params, sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, ['admin']);
+    if (!user) return;
     const body = await parseBody(req);
     const { name } = body;
     if (!name || !String(name).trim()) {
