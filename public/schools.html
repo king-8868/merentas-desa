@@ -80,7 +80,7 @@ function render() {
   tbody.innerHTML = SCHOOLS.map((s) => `
     <tr data-code="${s.code}">
       <td>${schoolBadge(s.code, SCHOOLS)}</td>
-      <td class="name-cell">${s.name}</td>
+      <td class="name-cell">${escapeHTML(s.name)}</td>
       <td>${STUDENT_COUNTS[s.code] || 0}</td>
       <td><button type="button" onclick="startEdit('${s.code}')">Sunting</button></td>
     </tr>
@@ -91,7 +91,7 @@ function startEdit(code) {
   const school = SCHOOLS.find((s) => s.code === code);
   const row = document.querySelector(`tr[data-code="${code}"]`);
   const cell = row.querySelector('.name-cell');
-  cell.innerHTML = `<input type="text" id="editName-${code}" value="${school.name}" style="margin-bottom:0;">`;
+  cell.innerHTML = `<input type="text" id="editName-${code}" value="${escapeHTML(school.name)}" style="margin-bottom:0;">`;
   const actionCell = row.children[3];
   actionCell.innerHTML = `
     <button type="button" onclick="saveEdit('${code}')">Simpan</button>

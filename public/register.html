@@ -82,12 +82,12 @@ async function loadOptions() {
   ]);
 
   document.getElementById('school').innerHTML =
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
   document.getElementById('category').innerHTML =
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 
   document.getElementById('filterSchool').innerHTML +=
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
   document.getElementById('filterCategory').innerHTML +=
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 }
@@ -112,7 +112,7 @@ function renderStudents() {
   tbody.innerHTML = list.map((s) => `
     <tr>
       <td><strong>${s.bib}</strong></td>
-      <td>${s.name}</td>
+      <td>${escapeHTML(s.name)}</td>
       <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
       <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
       <td><button class="danger" onclick="deleteStudent('${s.bib}')">Padam</button></td>
@@ -184,14 +184,14 @@ async function importCSV() {
     if (result.errors.length) {
       html += `<p style="color:red;font-weight:600;">${result.errors.length} baris gagal:</p>`;
       html += '<table><thead><tr><th>Baris</th><th>Sebab</th></tr></thead><tbody>';
-      html += result.errors.map((e) => `<tr><td>${e.row}</td><td>${e.reason}</td></tr>`).join('');
+      html += result.errors.map((e) => `<tr><td>${e.row}</td><td>${escapeHTML(e.reason)}</td></tr>`).join('');
       html += '</tbody></table>';
     }
     resultEl.innerHTML = html;
     fileInput.value = '';
     loadStudents();
   } catch (err) {
-    resultEl.innerHTML = `<p style="color:red;">${err.message}</p>`;
+    resultEl.innerHTML = `<p style="color:red;">${escapeHTML(err.message)}</p>`;
   }
 }
 

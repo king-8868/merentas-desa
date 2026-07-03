@@ -1,3 +1,18 @@
+// Escapes text before it's interpolated into an innerHTML template string or
+// an HTML attribute. Anything that can contain user-supplied text (student
+// names, school names, echoed CSV values in import errors, etc.) must go
+// through this - otherwise a name like `<img src=x onerror=...>` executes
+// for anyone viewing that page.
+function escapeHTML(value) {
+  const str = String(value ?? '');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function fetchJSON(url, options) {
   const res = await fetch(url, options);
   if (!res.ok) {
@@ -35,13 +50,13 @@ function schoolBadge(schoolCode, schools) {
   const color = SCHOOL_COLORS[idx >= 0 ? idx % SCHOOL_COLORS.length : 0];
   const school = schools.find((s) => s.code === schoolCode);
   const label = school ? school.code : schoolCode;
-  return `<span class="school-badge" style="color:${color};border-color:${color}" title="${school ? school.name : ''}">${label}</span>`;
+  return `<span class="school-badge" style="color:${color};border-color:${color}" title="${escapeHTML(school ? school.name : '')}">${escapeHTML(label)}</span>`;
 }
 
 function categoryBadge(categoryCode, categories) {
   const cat = categories.find((c) => c.code === categoryCode);
   const label = cat ? cat.code : categoryCode;
-  return `<span class="category-badge ${categoryCode}">${label}</span>`;
+  return `<span class="category-badge ${escapeHTML(categoryCode)}">${escapeHTML(label)}</span>`;
 }
 
 // CSV export helpers (zero-dependency: generated client-side, downloaded via Blob).

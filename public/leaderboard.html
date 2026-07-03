@@ -123,7 +123,7 @@ function renderLatestFinishers(results, students, schools) {
     return `
       <div class="finisher-row">
         <span class="bib">${s.bib}</span>
-        <span class="name">${s.name} ${schoolBadge(s.schoolCode, schools)}</span>
+        <span class="name">${escapeHTML(s.name)} ${schoolBadge(s.schoolCode, schools)}</span>
         <span class="time">${formatTime(r.time)}</span>
       </div>
     `;
@@ -140,7 +140,7 @@ function renderPodiums(categoryRankings, schools) {
       return `
         <div class="podium-slot ${MEDAL_CLASS[i]}">
           <span class="medal">${MEDALS[i]}</span>
-          <span>${s.name}</span>
+          <span>${escapeHTML(s.name)}</span>
           ${schoolBadge(s.schoolCode, schools)}
           <span class="p-time">${formatTime(s.time)}</span>
         </div>
@@ -164,7 +164,7 @@ function renderSchoolRanking(schoolRankings, schools) {
   el.innerHTML = schoolRankings.map((s) => `
     <div class="school-rank-row ${s.rank <= 3 ? 'rank-' + s.rank : ''}">
       <span class="rank-num">#${s.rank}</span>
-      <span>${schoolBadge(s.code, schools)} ${s.name}</span>
+      <span>${schoolBadge(s.code, schools)} ${escapeHTML(s.name)}</span>
       <span class="score">${s.totalScore} mata</span>
     </div>
   `).join('');

@@ -160,7 +160,7 @@ function renderRecent() {
     return `
       <tr>
         <td><strong>${s.bib}</strong></td>
-        <td>${s.name}</td>
+        <td>${escapeHTML(s.name)}</td>
         <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
         <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
         <td>${formatTime(r.time)}</td>
@@ -203,7 +203,7 @@ function renderAllList() {
     return `
       <tr>
         <td><strong>${s.bib}</strong></td>
-        <td>${s.name}</td>
+        <td>${escapeHTML(s.name)}</td>
         <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
         <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
         <td>${checkedInSet.has(s.bib) ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
@@ -228,10 +228,10 @@ async function doFinish(bib) {
     });
     const info = await getRankInfo(bib, result.student.categoryCode);
     const rankText = info ? ` - Kedudukan #${info.rank} dalam ${info.categoryLabel || ''}` : '';
-    feedback.innerHTML = `<div class="bib-result">${result.student.name} (${result.student.bib}) tamat pada ${formatTime(result.time)}${rankText}</div>`;
+    feedback.innerHTML = `<div class="bib-result">${escapeHTML(result.student.name)} (${result.student.bib}) tamat pada ${formatTime(result.time)}${rankText}</div>`;
     await loadAll();
   } catch (err) {
-    feedback.innerHTML = `<p style="color:red;font-weight:600;">${err.message}</p>`;
+    feedback.innerHTML = `<p style="color:red;font-weight:600;">${escapeHTML(err.message)}</p>`;
   }
 }
 
@@ -244,7 +244,7 @@ async function undoFinish(bib) {
 function renderFilterOptions() {
   document.getElementById('filterSchool').innerHTML =
     '<option value="">Semua Sekolah</option>' +
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
   document.getElementById('filterCategory').innerHTML =
     '<option value="">Semua Kategori</option>' +
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
@@ -274,7 +274,7 @@ function handleSearch(query) {
           return `
             <tr>
               <td><strong>${s.bib}</strong></td>
-              <td>${s.name}</td>
+              <td>${escapeHTML(s.name)}</td>
               <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
               <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
               <td>${elig.ok

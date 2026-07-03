@@ -112,7 +112,7 @@ function renderRecent() {
     return `
       <tr>
         <td><strong>${s.bib}</strong></td>
-        <td>${s.name}</td>
+        <td>${escapeHTML(s.name)}</td>
         <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
         <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
         <td>${time}</td>
@@ -125,7 +125,7 @@ function renderRecent() {
 function renderFilterOptions() {
   document.getElementById('filterSchool').innerHTML =
     '<option value="">Semua Sekolah</option>' +
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
   document.getElementById('filterCategory').innerHTML =
     '<option value="">Semua Kategori</option>' +
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
@@ -153,7 +153,7 @@ function renderAllList() {
     return `
       <tr>
         <td><strong>${s.bib}</strong></td>
-        <td>${s.name}</td>
+        <td>${escapeHTML(s.name)}</td>
         <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
         <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
         <td>${checkedIn ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
@@ -173,10 +173,10 @@ async function doCheckin(bib) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bib }),
     });
-    feedback.innerHTML = `<div class="bib-result">${result.student.name} (${result.student.bib}) telah didaftar masuk</div>`;
+    feedback.innerHTML = `<div class="bib-result">${escapeHTML(result.student.name)} (${result.student.bib}) telah didaftar masuk</div>`;
     await loadAll();
   } catch (err) {
-    feedback.innerHTML = `<p style="color:red;font-weight:600;">${err.message}</p>`;
+    feedback.innerHTML = `<p style="color:red;font-weight:600;">${escapeHTML(err.message)}</p>`;
   }
 }
 
@@ -210,7 +210,7 @@ function handleSearch(query) {
           return `
             <tr>
               <td><strong>${s.bib}</strong></td>
-              <td>${s.name}</td>
+              <td>${escapeHTML(s.name)}</td>
               <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
               <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
               <td>${checkedIn ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>

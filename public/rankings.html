@@ -66,7 +66,7 @@ function renderSchoolRanking(schoolRankings) {
   tbody.innerHTML = schoolRankings.map((s) => `
     <tr class="${medalClass(s.rank)}">
       <td>${s.rank}</td>
-      <td>${schoolBadge(s.code, SCHOOLS)} ${s.name}</td>
+      <td>${schoolBadge(s.code, SCHOOLS)} ${escapeHTML(s.name)}</td>
       <td><strong>${s.totalScore}</strong></td>
       <td>${s.finishedCount}</td>
       <td>${s.totalParticipants}</td>
@@ -102,7 +102,7 @@ function renderCategoryPanels(categoryRankings) {
         <tr class="${medalClass(s.rank)}">
           <td>${s.rank}</td>
           <td><strong>${s.bib}</strong></td>
-          <td>${s.name}</td>
+          <td>${escapeHTML(s.name)}</td>
           <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
           <td>${formatTime(s.time)}</td>
           <td>${s.points}</td>
@@ -114,7 +114,7 @@ function renderCategoryPanels(categoryRankings) {
     ? cat.pending.map((s) => `
         <tr>
           <td><strong>${s.bib}</strong></td>
-          <td>${s.name}</td>
+          <td>${escapeHTML(s.name)}</td>
           <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
         </tr>
       `).join('')
