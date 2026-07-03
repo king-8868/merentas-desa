@@ -89,9 +89,15 @@ function downloadCSV(filename, csvContent) {
 // enforcement (see lib/auth.js's requireAuth) - this only keeps the menu
 // from offering pages/actions a role can't use.
 const NAV_VISIBILITY = {
-  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html'],
+  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html'],
   school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
   official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
+};
+
+const ROLE_LABELS = {
+  admin: 'Pentadbir',
+  school: 'Pengurus Sekolah',
+  official: 'Pegawai Perlumbaan',
 };
 
 function applyNavVisibility(role) {
@@ -117,6 +123,20 @@ function addLogoutLink() {
     window.location.href = 'login.html';
   });
   nav.appendChild(link);
+}
+
+// 1.3: shows who is logged in (username, role, school if applicable) in the
+// header, next to the nav. Purely a display convenience - the server-side
+// checks in lib/auth.js are the actual enforcement, unaffected by this.
+function addUserBadge(user) {
+  const header = document.querySelector('header');
+  if (!header || header.querySelector('.user-badge')) return;
+  const badge = document.createElement('div');
+  badge.className = 'user-badge';
+  const roleLabel = ROLE_LABELS[user.role] || user.role;
+  const schoolPart = user.schoolCode ? ` &middot; ${escapeHTML(user.schoolCode)}` : '';
+  badge.innerHTML = `${escapeHTML(user.username)} &middot; ${escapeHTML(roleLabel)}${schoolPart}`;
+  header.appendChild(badge);
 }
 
 // Call at the top of every protected page's script, before any data
@@ -146,5 +166,22 @@ async function requireLogin(allowedRoles) {
   }
   applyNavVisibility(user.role);
   addLogoutLink();
+  addUserBadge(user);
   return user;
 }
+
+// 1.3: consistent footer on every page. Self-installs from here (app.js is
+// already included on all 13 pages, including the public leaderboard) so no
+// page's own markup needs to change - this script runs after the body is
+// already parsed (it's loaded at the end of <body>), so appending now is safe.
+function addFooter() {
+  if (document.querySelector('footer.app-footer')) return;
+  const footer = document.createElement('footer');
+  footer.className = 'app-footer';
+  footer.innerHTML = `
+    <p>Merentas Desa Management System</p>
+    <p>Developed by William Ngu &middot; &copy; 2026 William Ngu</p>
+  `;
+  document.body.appendChild(footer);
+}
+addFooter();

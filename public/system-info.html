@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maklumat Sistem - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+    <a href="users.html">Pengurusan Pengguna</a>
+    <a href="system-info.html" class="active">Maklumat Sistem</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Maklumat Sistem</h2>
+    <table id="infoTable">
+      <tbody></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+async function load() {
+  const info = await fetchJSON('/api/system-info');
+  const rows = [
+    ['Nama Sistem', escapeHTML(info.systemName)],
+    ['Acara Semasa', info.currentEvent.map(escapeHTML).join('<br>')],
+    ['Pembangun', escapeHTML(info.developer)],
+    ['Versi', escapeHTML(info.version)],
+    ['Status Pelayan', `<span style="color:var(--teal)">${escapeHTML(info.serverStatus)}</span>`],
+    ['Status Storan Data', `<span style="color:var(--teal)">${escapeHTML(info.dataStoreStatus)}</span>`],
+    ['Alamat Setempat (Local)', `<code>${escapeHTML(info.localUrl)}</code>`],
+    ['Alamat Rangkaian (Network)', info.networkUrls.length
+      ? info.networkUrls.map((u) => `<code>${escapeHTML(u)}</code>`).join('<br>')
+      : 'Tiada alamat rangkaian dikesan'],
+    ['Pengguna Log Masuk Semasa', `${escapeHTML(info.currentUser.username)} (${escapeHTML(info.currentUser.role)}${info.currentUser.schoolCode ? ' &middot; ' + escapeHTML(info.currentUser.schoolCode) : ''})`],
+  ];
+  document.querySelector('#infoTable tbody').innerHTML = rows
+    .map(([label, value]) => `<tr><th style="text-align:left;width:40%;">${label}</th><td>${value}</td></tr>`)
+    .join('');
+}
+
+requireLogin(['admin']).then((user) => { if (user) load(); });
+</script>
+</body>
+</html>

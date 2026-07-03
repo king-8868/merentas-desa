@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pengurusan Pengguna - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+    <a href="users.html" class="active">Pengurusan Pengguna</a>
+    <a href="system-info.html">Maklumat Sistem</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Cipta Akaun Pegawai Perlumbaan</h2>
+    <p class="hint">Sokongan berbilang akaun Pegawai Perlumbaan (contoh: satu akaun setiap stesen) tanpa perubahan kod.</p>
+    <form id="createForm">
+      <div class="form-row">
+        <div>
+          <label>Nama Pengguna</label>
+          <input type="text" id="newUsername" required>
+        </div>
+        <div>
+          <label>Kata Laluan Sementara</label>
+          <input type="text" id="newPassword" minlength="6" required>
+        </div>
+      </div>
+      <button type="submit">Cipta Akaun</button>
+    </form>
+    <p id="createMsg"></p>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Senarai Pengguna</h2>
+    <p class="hint">Kata laluan sedia ada tidak akan dipaparkan. Menetapkan semula kata laluan akan memaksa pengguna menukar kata laluan pada log masuk seterusnya.</p>
+    <table>
+      <thead><tr><th>Nama Pengguna</th><th>Peranan</th><th>Sekolah</th><th>Status</th><th>Log Masuk Terakhir</th><th></th></tr></thead>
+      <tbody id="userList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+const ROLE_DISPLAY = { admin: 'Pentadbir', school: 'Pengurus Sekolah', official: 'Pegawai Perlumbaan' };
+let CURRENT_USERNAME = null;
+
+async function load() {
+  const users = await fetchJSON('/api/users');
+  render(users);
+}
+
+function render(users) {
+  const tbody = document.getElementById('userList');
+  if (!users.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Tiada pengguna.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = users.map((u) => `
+    <tr data-username="${escapeHTML(u.username)}">
+      <td>${escapeHTML(u.username)}</td>
+      <td>${escapeHTML(ROLE_DISPLAY[u.role] || u.role)}</td>
+      <td>${u.schoolCode ? escapeHTML(u.schoolCode) : '-'}</td>
+      <td>${u.disabled ? '<span style="color:var(--red)">Dilumpuhkan</span>' : '<span style="color:var(--teal)">Aktif</span>'}</td>
+      <td>${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('ms-MY') : 'Tidak direkodkan'}</td>
+      <td class="action-cell">
+        <button type="button" onclick="startReset('${escapeHTML(u.username)}')">Reset Kata Laluan</button>
+        ${u.username === CURRENT_USERNAME
+          ? ''
+          : u.disabled
+            ? `<button type="button" onclick="setDisabled('${escapeHTML(u.username)}', false)">Aktifkan</button>`
+            : `<button type="button" onclick="setDisabled('${escapeHTML(u.username)}', true)">Lumpuhkan</button>`}
+      </td>
+    </tr>
+  `).join('');
+}
+
+function startReset(username) {
+  const row = document.querySelector(`tr[data-username="${CSS.escape(username)}"]`);
+  const cell = row.querySelector('.action-cell');
+  cell.innerHTML = `
+    <input type="text" id="resetPw-${escapeHTML(username)}" placeholder="Kata laluan sementara baharu" minlength="6" style="margin-bottom:0;width:auto;display:inline-block;">
+    <button type="button" onclick="confirmReset('${escapeHTML(username)}')">Sahkan</button>
+    <button type="button" onclick="load()">Batal</button>
+  `;
+  document.getElementById(`resetPw-${username}`).focus();
+}
+
+async function confirmReset(username) {
+  const input = document.getElementById(`resetPw-${username}`);
+  const newPassword = input.value;
+  if (!newPassword || newPassword.length < 6) {
+    alert('Kata laluan sementara mesti sekurang-kurangnya 6 aksara');
+    return;
+  }
+  try {
+    await fetchJSON(`/api/users/${encodeURIComponent(username)}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword }),
+    });
+    alert(`Kata laluan untuk ${username} telah ditetapkan semula. Pengguna mesti menukarnya pada log masuk seterusnya.`);
+    load();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function setDisabled(username, disabled) {
+  const action = disabled ? 'melumpuhkan' : 'mengaktifkan';
+  if (!confirm(`Adakah anda pasti mahu ${action} akaun "${username}"?`)) return;
+  try {
+    await fetchJSON(`/api/users/${encodeURIComponent(username)}/${disabled ? 'disable' : 'enable'}`, { method: 'POST' });
+    load();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('newUsername').value;
+  const password = document.getElementById('newPassword').value;
+  const msg = document.getElementById('createMsg');
+  try {
+    await fetchJSON('/api/auth/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, role: 'official' }),
+    });
+    msg.textContent = 'Akaun Pegawai Perlumbaan berjaya dicipta.';
+    msg.style.color = 'green';
+    e.target.reset();
+    load();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+});
+
+requireLogin(['admin']).then((user) => { if (user) { CURRENT_USERNAME = user.username; load(); } });
+</script>
+</body>
+</html>
