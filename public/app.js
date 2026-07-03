@@ -85,13 +85,32 @@ function downloadCSV(filename, csvContent) {
   URL.revokeObjectURL(url);
 }
 
+// SINGLE source of truth for the nav bar's content and ordering. No page's
+// HTML hardcodes its own <a> list anymore (see renderNav() below) - every
+// page just has an empty <nav></nav>, filled in from here.
+const NAV_ITEMS = [
+  { href: 'index.html', label: 'Utama' },
+  { href: 'register.html', label: 'Pendaftaran Peserta' },
+  { href: 'checkin.html', label: 'Daftar Masuk' },
+  { href: 'race-control.html', label: 'Kawalan Perlumbaan' },
+  { href: 'record.html', label: 'Rekod Tamat' },
+  { href: 'rankings.html', label: 'Kedudukan &amp; Markah Sekolah' },
+  { href: 'leaderboard.html', label: 'Papan Markah Langsung' },
+  { href: 'schools.html', label: 'Pengurusan Sekolah' },
+  { href: 'scoring.html', label: 'Konfigurasi Markah' },
+  { href: 'users.html', label: 'Pengurusan Pengguna' },
+  { href: 'system-info.html', label: 'Maklumat Sistem' },
+];
+
 // Which nav links each role gets to see. Backend routes are the real
-// enforcement (see lib/auth.js's requireAuth) - this only keeps the menu
-// from offering pages/actions a role can't use.
+// enforcement (see lib/auth.js's requireAuth) - this only decides what the
+// menu offers. 'public' is for an anonymous visitor (currently only
+// leaderboard.html renders without requiring a session).
 const NAV_VISIBILITY = {
   admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html'],
   school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
   official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
+  public: ['leaderboard.html'],
 };
 
 const ROLE_LABELS = {
@@ -100,13 +119,44 @@ const ROLE_LABELS = {
   official: 'Pegawai Perlumbaan',
 };
 
-function applyNavVisibility(role) {
+// Builds the nav bar's DOM nodes directly from NAV_ITEMS, filtered by role -
+// an unauthorized link is never created in the first place, not created-
+// then-hidden. Call this only once the role is actually known (requireLogin
+// awaits /api/auth/me first) so there's no window where a fuller, static
+// nav is visible before role-based filtering kicks in.
+function renderNav(role) {
+  const nav = document.querySelector('nav');
+  if (!nav) return;
   const allowed = NAV_VISIBILITY[role] || [];
-  document.querySelectorAll('nav a').forEach((a) => {
-    const href = a.getAttribute('href');
-    if (href === 'leaderboard.html') return; // always visible, always public
-    a.style.display = allowed.includes(href) ? '' : 'none';
-  });
+  const currentPage = location.pathname.split('/').pop() || 'index.html';
+  nav.innerHTML = '';
+  NAV_ITEMS
+    .filter((item) => allowed.includes(item.href))
+    .forEach((item) => {
+      const a = document.createElement('a');
+      a.href = item.href;
+      a.innerHTML = item.label;
+      if (item.href === currentPage) a.className = 'active';
+      nav.appendChild(a);
+    });
+  if (role !== 'public') addLogoutLink();
+}
+
+// For leaderboard.html only: it's deliberately public (no requireLogin call,
+// no redirect ever) since it's meant to run unattended on a projector. This
+// does a best-effort, non-redirecting session check so someone who *is*
+// logged in still gets their normal role-appropriate nav (e.g. to navigate
+// back to another page) while a genuinely anonymous viewer only ever gets
+// the public nav (leaderboard.html itself) - never an unauthorized link.
+async function renderPublicPageNav() {
+  try {
+    const res = await fetch('/api/auth/me');
+    if (!res.ok) throw new Error('no session');
+    const user = await res.json();
+    renderNav(user.role);
+  } catch (err) {
+    renderNav('public');
+  }
 }
 
 function addLogoutLink() {
@@ -164,8 +214,7 @@ async function requireLogin(allowedRoles) {
     window.location.href = 'index.html';
     return null;
   }
-  applyNavVisibility(user.role);
-  addLogoutLink();
+  renderNav(user.role);
   addUserBadge(user);
   return user;
 }

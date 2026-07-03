@@ -73,19 +73,7 @@ main { max-width: 1400px; }
     <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
     <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
   </div>
-  <nav>
-    <a href="index.html">Utama</a>
-    <a href="register.html">Pendaftaran Peserta</a>
-    <a href="checkin.html">Daftar Masuk</a>
-    <a href="race-control.html">Kawalan Perlumbaan</a>
-    <a href="record.html">Rekod Tamat</a>
-    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
-    <a href="leaderboard.html" class="active">Papan Markah Langsung</a>
-    <a href="schools.html">Pengurusan Sekolah</a>
-    <a href="scoring.html">Konfigurasi Markah</a>
-    <a href="users.html">Pengurusan Pengguna</a>
-    <a href="system-info.html">Maklumat Sistem</a>
-  </nav>
+  <nav></nav>
 </header>
 <main>
   <div class="card">
@@ -185,6 +173,7 @@ async function load() {
   renderSchoolRanking(rankings.schoolRankings, schools);
 }
 
+renderPublicPageNav();
 load();
 setInterval(load, 3000);
 </script>
