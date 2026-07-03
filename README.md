@@ -77,6 +77,31 @@ Then open **http://localhost:3000** in your browser.
 PORT=8080 node server.js
 ```
 
+## Access from Other Devices (Same WiFi)
+
+The server already listens on all network interfaces by default (this is
+just how Node.js works when you don't specify a host — no configuration
+needed), so other devices on the same WiFi/LAN — phones, tablets, other
+laptops — can reach it too. On startup, the console prints both addresses:
+
+```
+Merentas Desa system running:
+  - Local:   http://localhost:3000
+  - Network: http://192.168.x.x:3000
+```
+
+- On the machine running the server, use the **Local** address.
+- On any other device connected to the **same WiFi network**, open the
+  **Network** address shown in the console in that device's browser
+  (e.g. `http://192.168.0.43:3000`). This lets you run registration,
+  check-in, race control, and Finish Recording from separate devices at
+  the same time — exactly as described in PRD.md's multi-station layout
+  (registration desk, check-in table, finish line, race control each on
+  their own device).
+- If a device can't connect: confirm it's on the *same* WiFi network as the
+  host machine (not a guest network, not mobile data), and check the host
+  machine's firewall isn't blocking incoming connections on the port.
+
 ## Schools
 
 Preloaded on first run (in `data/schools.json`):

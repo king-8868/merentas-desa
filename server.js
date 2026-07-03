@@ -1,4 +1,5 @@
 const http = require('http');
+const os = require('os');
 
 const { PUBLIC_DIR } = require('./lib/config');
 const { Router } = require('./lib/router');
@@ -55,7 +56,32 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Node already binds to all network interfaces by default when no host is
+// passed to listen() - this just detects and prints the LAN address(es) so
+// other devices on the same WiFi (phones, tablets, other laptops) know what
+// to type in their browser. No change to how the server actually listens.
+function getLanAddresses() {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (const addrs of Object.values(interfaces)) {
+    for (const addr of addrs) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        addresses.push(addr.address);
+      }
+    }
+  }
+  return addresses;
+}
+
 initData();
 server.listen(PORT, () => {
-  console.log(`Merentas Desa system running at http://localhost:${PORT}`);
+  console.log(`Merentas Desa system running:`);
+  console.log(`  - Local:   http://localhost:${PORT}`);
+  const lanAddresses = getLanAddresses();
+  if (lanAddresses.length) {
+    lanAddresses.forEach((ip) => console.log(`  - Network: http://${ip}:${PORT}`));
+    console.log(`\nOther devices on the same WiFi (phone, tablet, another laptop) can open the "Network" address above in their browser.`);
+  } else {
+    console.log(`  - Network: no LAN address detected (check WiFi/network connection)`);
+  }
 });
