@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Papan Markah Langsung - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+/* Projector/big-screen display: use more of the available width than the
+   1000px reading-column default used by the admin/form-heavy pages. */
+main { max-width: 1400px; }
+
+.finisher-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.15rem;
+}
+.finisher-row:last-child { border-bottom: none; }
+.finisher-row .bib { font-weight: 700; min-width: 110px; }
+.finisher-row .name { flex: 1; }
+.finisher-row .time { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--navy); }
+
+.podium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.5rem;
+}
+.podium-card {
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 1.1rem;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-soft);
+}
+.podium-card h3 { margin: 0 0 0.85rem; text-align: center; font-size: 1.15rem; }
+.podium-slot {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--radius-sm);
+  margin-bottom: 0.5rem;
+  font-size: 1.05rem;
+}
+.podium-slot .medal { font-weight: 700; font-size: 1.2rem; width: 1.6rem; text-align: center; }
+.podium-slot.gold { background: rgba(255, 215, 0, 0.22); }
+.podium-slot.silver { background: rgba(192, 192, 192, 0.28); }
+.podium-slot.bronze { background: rgba(205, 127, 50, 0.2); }
+.podium-slot .p-time { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.podium-empty { color: var(--text-secondary); font-style: italic; font-size: 0.9rem; padding: 0.5rem 0.7rem; }
+
+.school-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.2rem;
+}
+.school-rank-row .rank-num { font-weight: 700; width: 2rem; }
+.school-rank-row .score { margin-left: auto; font-weight: 700; color: var(--navy); }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html" class="active">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Baru Tamat</h2>
+    <div id="latestFinishers"><p class="empty">Belum ada peserta tamat.</p></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">3 Teratas Setiap Kategori</h2>
+    <div class="podium-grid" id="podiumGrid"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Kedudukan Keseluruhan Sekolah</h2>
+    <div id="schoolRanking"></div>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+const MEDALS = ['🥇', '🥈', '🥉'];
+const MEDAL_CLASS = ['gold', 'silver', 'bronze'];
+
+function renderLatestFinishers(results, students, schools) {
+  const el = document.getElementById('latestFinishers');
+  const sorted = [...results]
+    .filter((r) => students.find((s) => s.bib === r.bib))
+    .sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0))
+    .slice(0, 12);
+
+  if (!sorted.length) {
+    el.innerHTML = '<p class="empty">Belum ada peserta tamat.</p>';
+    return;
+  }
+
+  el.innerHTML = sorted.map((r) => {
+    const s = students.find((st) => st.bib === r.bib);
+    return `
+      <div class="finisher-row">
+        <span class="bib">${s.bib}</span>
+        <span class="name">${s.name} ${schoolBadge(s.schoolCode, schools)}</span>
+        <span class="time">${formatTime(r.time)}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderPodiums(categoryRankings, schools) {
+  const grid = document.getElementById('podiumGrid');
+  grid.innerHTML = categoryRankings.map((cat) => {
+    const top3 = cat.finished.slice(0, 3);
+    const slots = [0, 1, 2].map((i) => {
+      const s = top3[i];
+      if (!s) return `<div class="podium-empty">${MEDALS[i]} -</div>`;
+      return `
+        <div class="podium-slot ${MEDAL_CLASS[i]}">
+          <span class="medal">${MEDALS[i]}</span>
+          <span>${s.name}</span>
+          ${schoolBadge(s.schoolCode, schools)}
+          <span class="p-time">${formatTime(s.time)}</span>
+        </div>
+      `;
+    }).join('');
+    return `
+      <div class="podium-card">
+        <h3>${cat.label}</h3>
+        ${slots}
+      </div>
+    `;
+  }).join('');
+}
+
+function renderSchoolRanking(schoolRankings, schools) {
+  const el = document.getElementById('schoolRanking');
+  if (!schoolRankings.length) {
+    el.innerHTML = '<p class="empty">Tiada data lagi.</p>';
+    return;
+  }
+  el.innerHTML = schoolRankings.map((s) => `
+    <div class="school-rank-row ${s.rank <= 3 ? 'rank-' + s.rank : ''}">
+      <span class="rank-num">#${s.rank}</span>
+      <span>${schoolBadge(s.code, schools)} ${s.name}</span>
+      <span class="score">${s.totalScore} mata</span>
+    </div>
+  `).join('');
+}
+
+async function load() {
+  const [schools, students, results, rankings] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/students'),
+    fetchJSON('/api/results'),
+    fetchJSON('/api/rankings'),
+  ]);
+
+  renderLatestFinishers(results, students, schools);
+  renderPodiums(rankings.categoryRankings, schools);
+  renderSchoolRanking(rankings.schoolRankings, schools);
+}
+
+load();
+setInterval(load, 3000);
+</script>
+</body>
+</html>

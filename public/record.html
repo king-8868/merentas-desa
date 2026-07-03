@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rekod Tamat - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+.race-status-strip {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.race-status-chip {
+  flex: 1;
+  min-width: 160px;
+  padding: 0.65rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.race-status-chip.running { background: rgba(42, 157, 143, 0.12); border-color: var(--teal); }
+.race-status-chip.stopped { background: rgba(214, 40, 40, 0.08); border-color: var(--red); color: #a83232; }
+.race-status-chip strong { display: block; font-size: 1rem; }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html" class="active">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Status Perlumbaan</h2>
+    <div class="race-status-strip" id="raceStrip"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Rekod Tamat Larian</h2>
+    <p class="hint">Cari peserta (No. Peserta / Nama) dan tekan Enter. Masa tamat direkodkan secara automatik daripada jam perlumbaan - guru TIDAK perlu masukkan masa secara manual.</p>
+    <input type="text" id="search" placeholder="Imbas / taip No. Peserta atau Nama, kemudian Enter..." autofocus autocomplete="off">
+    <div id="feedback"></div>
+    <div id="matches"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Baru Tamat</h2>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th>Masa</th><th>Kedudukan</th><th></th></tr></thead>
+      <tbody id="recentList"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Semua Peserta</h2>
+    <div class="filter-row">
+      <select id="filterSchool"><option value="">Semua Sekolah</option></select>
+      <select id="filterCategory"><option value="">Semua Kategori</option></select>
+      <select id="filterStatus">
+        <option value="">Semua Status</option>
+        <option value="finished">Sudah Tamat</option>
+        <option value="pending">Belum Tamat</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th>Daftar Masuk</th><th>Status</th><th></th></tr></thead>
+      <tbody id="allList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let SCHOOLS = [];
+let CATEGORIES = [];
+let STUDENTS = [];
+let RESULTS = [];
+let CHECKINS = [];
+let RACE_STATUS = [];
+
+function checkinSet() {
+  return new Set(CHECKINS.map((c) => c.bib));
+}
+function resultMap() {
+  return new Map(RESULTS.map((r) => [r.bib, r.time]));
+}
+function raceStatusMap() {
+  return new Map(RACE_STATUS.map((r) => [r.code, r]));
+}
+
+function eligibility(student) {
+  const checkedIn = checkinSet().has(student.bib);
+  const rs = raceStatusMap().get(student.categoryCode);
+  const started = rs && rs.started;
+  const finished = resultMap().has(student.bib);
+  if (finished) return { ok: false, reason: 'Sudah tamat', finished: true };
+  if (!checkedIn) return { ok: false, reason: 'Belum daftar masuk', finished: false };
+  if (!started) return { ok: false, reason: 'Perlumbaan belum bermula', finished: false };
+  return { ok: true, reason: '', finished: false };
+}
+
+async function loadAll() {
+  [SCHOOLS, CATEGORIES, STUDENTS, RESULTS, CHECKINS, RACE_STATUS] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/categories'),
+    fetchJSON('/api/students'),
+    fetchJSON('/api/results'),
+    fetchJSON('/api/checkins'),
+    fetchJSON('/api/race-status'),
+  ]);
+  renderRaceStrip();
+  renderRecent();
+  renderAllList();
+}
+
+function renderRaceStrip() {
+  document.getElementById('raceStrip').innerHTML = RACE_STATUS.map((s) => `
+    <div class="race-status-chip ${s.started ? 'running' : 'stopped'}">
+      <strong>${s.label}</strong>
+      ${s.started ? `Berjalan - ${formatTime(s.elapsedSeconds)}` : 'Belum bermula'}
+    </div>
+  `).join('');
+}
+
+async function getRankInfo(bib, categoryCode) {
+  const rankings = await fetchJSON('/api/rankings');
+  const cat = rankings.categoryRankings.find((c) => c.code === categoryCode);
+  if (!cat) return null;
+  const match = cat.finished.find((f) => f.bib === bib);
+  return match ? { ...match, categoryLabel: cat.label } : null;
+}
+
+function renderRecent() {
+  const map = resultMap();
+  const recent = [...RESULTS].sort((a, b) => (b.recordedAt || 0) - (a.recordedAt || 0)).slice(0, 10);
+  const tbody = document.getElementById('recentList');
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Belum ada peserta tamat.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = recent.map((r) => {
+    const s = STUDENTS.find((st) => st.bib === r.bib);
+    if (!s) return '';
+    return `
+      <tr>
+        <td><strong>${s.bib}</strong></td>
+        <td>${s.name}</td>
+        <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+        <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+        <td>${formatTime(r.time)}</td>
+        <td id="rank-${s.bib}">...</td>
+        <td><button class="danger" onclick="undoFinish('${s.bib}')">Batal</button></td>
+      </tr>
+    `;
+  }).join('');
+
+  recent.forEach(async (r) => {
+    const s = STUDENTS.find((st) => st.bib === r.bib);
+    if (!s) return;
+    const info = await getRankInfo(r.bib, s.categoryCode);
+    const cell = document.getElementById(`rank-${r.bib}`);
+    if (cell) cell.textContent = info ? `#${info.rank}` : '-';
+  });
+}
+
+function renderAllList() {
+  const checkedInSet = checkinSet();
+  const finishedMap = resultMap();
+  const filterSchool = document.getElementById('filterSchool').value;
+  const filterCategory = document.getElementById('filterCategory').value;
+  const filterStatus = document.getElementById('filterStatus').value;
+
+  let list = STUDENTS;
+  if (filterSchool) list = list.filter((s) => s.schoolCode === filterSchool);
+  if (filterCategory) list = list.filter((s) => s.categoryCode === filterCategory);
+  if (filterStatus === 'finished') list = list.filter((s) => finishedMap.has(s.bib));
+  if (filterStatus === 'pending') list = list.filter((s) => !finishedMap.has(s.bib));
+
+  const tbody = document.getElementById('allList');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">Tiada peserta.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((s) => {
+    const finished = finishedMap.has(s.bib);
+    const elig = eligibility(s);
+    return `
+      <tr>
+        <td><strong>${s.bib}</strong></td>
+        <td>${s.name}</td>
+        <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+        <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+        <td>${checkedInSet.has(s.bib) ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
+        <td>${finished ? formatTime(finishedMap.get(s.bib)) : '<span class="empty">Belum tamat</span>'}</td>
+        <td>${finished
+          ? `<button class="danger" onclick="undoFinish('${s.bib}')">Batal</button>`
+          : elig.ok
+            ? `<button onclick="doFinish('${s.bib}')">Selesai</button>`
+            : `<button disabled title="${elig.reason}">${elig.reason}</button>`}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function doFinish(bib) {
+  const feedback = document.getElementById('feedback');
+  try {
+    const result = await fetchJSON('/api/results/finish', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bib }),
+    });
+    const info = await getRankInfo(bib, result.student.categoryCode);
+    const rankText = info ? ` - Kedudukan #${info.rank} dalam ${info.categoryLabel || ''}` : '';
+    feedback.innerHTML = `<div class="bib-result">${result.student.name} (${result.student.bib}) tamat pada ${formatTime(result.time)}${rankText}</div>`;
+    await loadAll();
+  } catch (err) {
+    feedback.innerHTML = `<p style="color:red;font-weight:600;">${err.message}</p>`;
+  }
+}
+
+async function undoFinish(bib) {
+  if (!confirm('Batalkan rekod tamat peserta ini?')) return;
+  await fetchJSON(`/api/results/${encodeURIComponent(bib)}`, { method: 'DELETE' });
+  await loadAll();
+}
+
+function renderFilterOptions() {
+  document.getElementById('filterSchool').innerHTML =
+    '<option value="">Semua Sekolah</option>' +
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+  document.getElementById('filterCategory').innerHTML =
+    '<option value="">Semua Kategori</option>' +
+    CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
+}
+
+function handleSearch(query) {
+  const matchesEl = document.getElementById('matches');
+  const trimmed = query.trim();
+  if (!trimmed) {
+    matchesEl.innerHTML = '';
+    return;
+  }
+  const lower = trimmed.toLowerCase();
+  const results = STUDENTS.filter(
+    (s) => s.bib.toLowerCase().includes(lower) || s.name.toLowerCase().includes(lower)
+  );
+  if (!results.length) {
+    matchesEl.innerHTML = '<p class="empty">Tiada peserta dijumpai.</p>';
+    return;
+  }
+  matchesEl.innerHTML = `
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th></th></tr></thead>
+      <tbody>
+        ${results.map((s) => {
+          const elig = eligibility(s);
+          return `
+            <tr>
+              <td><strong>${s.bib}</strong></td>
+              <td>${s.name}</td>
+              <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+              <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+              <td>${elig.ok
+                ? `<button onclick="doFinish('${s.bib}')">Selesai</button>`
+                : `<button disabled title="${elig.reason}">${elig.reason}</button>`}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+const searchInput = document.getElementById('search');
+
+searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
+
+searchInput.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const value = searchInput.value.trim();
+  if (!value) return;
+
+  const exactBib = STUDENTS.find((s) => s.bib.toLowerCase() === value.toLowerCase());
+  if (exactBib) {
+    await doFinish(exactBib.bib);
+    searchInput.value = '';
+    document.getElementById('matches').innerHTML = '';
+    searchInput.focus();
+    return;
+  }
+  handleSearch(value);
+});
+
+document.getElementById('filterSchool').addEventListener('change', renderAllList);
+document.getElementById('filterCategory').addEventListener('change', renderAllList);
+document.getElementById('filterStatus').addEventListener('change', renderAllList);
+
+loadAll().then(renderFilterOptions);
+searchInput.focus();
+setInterval(async () => {
+  RACE_STATUS = await fetchJSON('/api/race-status');
+  renderRaceStrip();
+}, 1000);
+</script>
+</body>
+</html>

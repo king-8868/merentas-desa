@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kawalan Perlumbaan - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+.race-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow-soft);
+}
+.race-card h3 { margin: 0; font-size: 1.2rem; text-align: center; }
+.race-timer {
+  font-size: 3rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--navy);
+}
+.race-timer.not-started { color: #aaa; font-size: 2rem; }
+.race-meta { color: var(--text-secondary); font-size: 0.85rem; }
+.race-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+.start-btn {
+  font-size: 1.1rem;
+  padding: 0.8rem 2rem;
+  background: var(--teal);
+  box-shadow: 0 2px 10px rgba(42, 157, 143, 0.35);
+}
+.start-btn:hover { background: #21867a; box-shadow: 0 4px 16px rgba(42, 157, 143, 0.45); }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html" class="active">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Kawalan Perlumbaan</h2>
+    <p class="hint">Setiap kategori mempunyai jam perlumbaan sendiri, berjalan secara berasingan. Tekan Mula untuk memulakan kategori tersebut - masa direkodkan oleh pelayan dan kekal walaupun pelayar/komputer dimulakan semula.</p>
+    <div class="race-grid" id="raceGrid"></div>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+function formatElapsed(totalSeconds) {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = Math.floor(totalSeconds % 60);
+  if (h > 0) {
+    return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+async function startCategory(code) {
+  await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/start`, { method: 'POST' });
+  await load();
+}
+
+async function resetCategory(code, label) {
+  if (!confirm(`Reset jam untuk ${label}? Ini akan memadam masa mula semasa - hanya lakukan ini jika kategori dimulakan secara tersilap.`)) {
+    return;
+  }
+  await fetchJSON(`/api/race-status/${encodeURIComponent(code)}/reset`, { method: 'POST' });
+  await load();
+}
+
+function render(statuses) {
+  const grid = document.getElementById('raceGrid');
+  grid.innerHTML = statuses.map((s) => {
+    if (!s.started) {
+      return `
+        <div class="race-card">
+          <h3>${s.label}</h3>
+          <div class="race-timer not-started">Belum Bermula</div>
+          <button class="start-btn" onclick="startCategory('${s.code}')">Mula Perlumbaan</button>
+        </div>
+      `;
+    }
+    const startedAt = new Date(s.startTime).toLocaleTimeString('ms-MY');
+    return `
+      <div class="race-card">
+        <h3>${s.label}</h3>
+        <div class="race-timer">${formatElapsed(s.elapsedSeconds)}</div>
+        <div class="race-meta">Bermula: ${startedAt}</div>
+        <button class="danger" onclick="resetCategory('${s.code}', '${s.label}')">Reset</button>
+      </div>
+    `;
+  }).join('');
+}
+
+async function load() {
+  const statuses = await fetchJSON('/api/race-status');
+  render(statuses);
+}
+
+load();
+setInterval(load, 1000);
+</script>
+</body>
+</html>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daftar Masuk - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html" class="active">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Daftar Masuk Peserta</h2>
+    <p class="hint">Imbas No. Peserta (bib) dan tekan Enter untuk daftar masuk serta-merta. Atau taip nama untuk cari.</p>
+    <input type="text" id="search" placeholder="Imbas / taip No. Peserta atau Nama, kemudian Enter..." autofocus autocomplete="off">
+    <div id="feedback"></div>
+    <div id="matches"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Statistik Kehadiran</h2>
+    <div id="stats" class="stats"><p class="empty">Loading...</p></div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Baru Didaftar Masuk</h2>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th>Masa Daftar Masuk</th><th></th></tr></thead>
+      <tbody id="recentList"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Semua Peserta</h2>
+    <div class="filter-row">
+      <select id="filterSchool"><option value="">Semua Sekolah</option></select>
+      <select id="filterCategory"><option value="">Semua Kategori</option></select>
+      <select id="filterStatus">
+        <option value="">Semua Status</option>
+        <option value="in">Sudah Daftar Masuk</option>
+        <option value="out">Belum Daftar Masuk</option>
+      </select>
+    </div>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th>Status</th><th></th></tr></thead>
+      <tbody id="allList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let SCHOOLS = [];
+let CATEGORIES = [];
+let STUDENTS = [];
+let CHECKINS = [];
+
+function checkinMap() {
+  return new Map(CHECKINS.map((c) => [c.bib, c.checkInTime]));
+}
+
+async function loadAll() {
+  [SCHOOLS, CATEGORIES, STUDENTS, CHECKINS] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/categories'),
+    fetchJSON('/api/students'),
+    fetchJSON('/api/checkins'),
+  ]);
+  renderStats();
+  renderRecent();
+  renderAllList();
+}
+
+function renderStats() {
+  const total = STUDENTS.length;
+  const checkedIn = CHECKINS.length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-box"><h3>${total}</h3><p>Jumlah Berdaftar</p></div>
+    <div class="stat-box" style="background:#2a9d8f"><h3>${checkedIn}</h3><p>Sudah Daftar Masuk</p></div>
+    <div class="stat-box" style="background:#d62828"><h3>${total - checkedIn}</h3><p>Belum Daftar Masuk</p></div>
+  `;
+}
+
+function renderRecent() {
+  const map = checkinMap();
+  const recent = [...CHECKINS].sort((a, b) => b.checkInTime - a.checkInTime).slice(0, 10);
+  const tbody = document.getElementById('recentList');
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Belum ada peserta didaftar masuk.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = recent.map((c) => {
+    const s = STUDENTS.find((st) => st.bib === c.bib);
+    if (!s) return '';
+    const time = new Date(c.checkInTime).toLocaleTimeString('ms-MY');
+    return `
+      <tr>
+        <td><strong>${s.bib}</strong></td>
+        <td>${s.name}</td>
+        <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+        <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+        <td>${time}</td>
+        <td><button class="danger" onclick="undoCheckin('${s.bib}')">Batal</button></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function renderFilterOptions() {
+  document.getElementById('filterSchool').innerHTML =
+    '<option value="">Semua Sekolah</option>' +
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+  document.getElementById('filterCategory').innerHTML =
+    '<option value="">Semua Kategori</option>' +
+    CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
+}
+
+function renderAllList() {
+  const map = checkinMap();
+  const filterSchool = document.getElementById('filterSchool').value;
+  const filterCategory = document.getElementById('filterCategory').value;
+  const filterStatus = document.getElementById('filterStatus').value;
+
+  let list = STUDENTS;
+  if (filterSchool) list = list.filter((s) => s.schoolCode === filterSchool);
+  if (filterCategory) list = list.filter((s) => s.categoryCode === filterCategory);
+  if (filterStatus === 'in') list = list.filter((s) => map.has(s.bib));
+  if (filterStatus === 'out') list = list.filter((s) => !map.has(s.bib));
+
+  const tbody = document.getElementById('allList');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Tiada peserta.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((s) => {
+    const checkedIn = map.has(s.bib);
+    return `
+      <tr>
+        <td><strong>${s.bib}</strong></td>
+        <td>${s.name}</td>
+        <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+        <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+        <td>${checkedIn ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
+        <td>${checkedIn
+          ? `<button class="danger" onclick="undoCheckin('${s.bib}')">Batal</button>`
+          : `<button onclick="doCheckin('${s.bib}')">Daftar Masuk</button>`}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function doCheckin(bib) {
+  const feedback = document.getElementById('feedback');
+  try {
+    const result = await fetchJSON('/api/checkins', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bib }),
+    });
+    feedback.innerHTML = `<div class="bib-result">${result.student.name} (${result.student.bib}) telah didaftar masuk</div>`;
+    await loadAll();
+  } catch (err) {
+    feedback.innerHTML = `<p style="color:red;font-weight:600;">${err.message}</p>`;
+  }
+}
+
+async function undoCheckin(bib) {
+  await fetchJSON(`/api/checkins/${encodeURIComponent(bib)}`, { method: 'DELETE' });
+  await loadAll();
+}
+
+function handleSearch(query) {
+  const matchesEl = document.getElementById('matches');
+  const trimmed = query.trim();
+  if (!trimmed) {
+    matchesEl.innerHTML = '';
+    return;
+  }
+  const lower = trimmed.toLowerCase();
+  const results = STUDENTS.filter(
+    (s) => s.bib.toLowerCase().includes(lower) || s.name.toLowerCase().includes(lower)
+  );
+  const map = checkinMap();
+  if (!results.length) {
+    matchesEl.innerHTML = '<p class="empty">Tiada peserta dijumpai.</p>';
+    return;
+  }
+  matchesEl.innerHTML = `
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        ${results.map((s) => {
+          const checkedIn = map.has(s.bib);
+          return `
+            <tr>
+              <td><strong>${s.bib}</strong></td>
+              <td>${s.name}</td>
+              <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+              <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+              <td>${checkedIn ? '<span style="color:#2a9d8f;font-weight:700;">Sudah</span>' : '<span class="empty">Belum</span>'}</td>
+              <td>${checkedIn ? '' : `<button onclick="doCheckin('${s.bib}')">Daftar Masuk</button>`}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+const searchInput = document.getElementById('search');
+
+searchInput.addEventListener('input', (e) => handleSearch(e.target.value));
+
+searchInput.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  const value = searchInput.value.trim();
+  if (!value) return;
+
+  const exactBib = STUDENTS.find((s) => s.bib.toLowerCase() === value.toLowerCase());
+  if (exactBib) {
+    await doCheckin(exactBib.bib);
+    searchInput.value = '';
+    document.getElementById('matches').innerHTML = '';
+    searchInput.focus();
+    return;
+  }
+  // Not an exact bib match - keep showing name/partial matches for manual selection.
+  handleSearch(value);
+});
+
+document.getElementById('filterSchool').addEventListener('change', renderAllList);
+document.getElementById('filterCategory').addEventListener('change', renderAllList);
+document.getElementById('filterStatus').addEventListener('change', renderAllList);
+
+loadAll().then(renderFilterOptions);
+searchInput.focus();
+</script>
+</body>
+</html>

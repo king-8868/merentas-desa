@@ -1,0 +1,61 @@
+const http = require('http');
+
+const { PUBLIC_DIR } = require('./lib/config');
+const { Router } = require('./lib/router');
+const { sendJSON, parseBody, parseRawBody, serveStatic } = require('./lib/http-helpers');
+const initData = require('./lib/init-data');
+
+const PORT = process.env.PORT || 3000;
+
+// Race-day reliability net: an unexpected error must never take the whole
+// server down mid-event. Log it and keep serving.
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception (server kept alive):', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection (server kept alive):', err);
+});
+
+const router = new Router();
+require('./routes/schools').register(router);
+require('./routes/categories').register(router);
+require('./routes/students').register(router);
+require('./routes/checkins').register(router);
+require('./routes/race').register(router);
+require('./routes/results').register(router);
+require('./routes/rankings').register(router);
+require('./routes/scoring').register(router);
+
+const server = http.createServer(async (req, res) => {
+  let urlObj;
+  try {
+    urlObj = new URL(req.url, `http://localhost:${PORT}`);
+  } catch (err) {
+    res.writeHead(400, { 'Content-Type': 'text/plain' });
+    return res.end('Bad Request');
+  }
+  const pathname = urlObj.pathname;
+
+  try {
+    if (pathname.startsWith('/api/')) {
+      const match = router.match(req.method, pathname);
+      if (!match) return sendJSON(res, 404, { error: 'Not found' });
+      return await match.handler(req, res, {
+        params: match.params,
+        query: urlObj.searchParams,
+        sendJSON,
+        parseBody,
+        parseRawBody,
+      });
+    }
+    return serveStatic(req, res, PUBLIC_DIR);
+  } catch (err) {
+    console.error(err);
+    return sendJSON(res, 500, { error: err.message || 'Server error' });
+  }
+});
+
+initData();
+server.listen(PORT, () => {
+  console.log(`Merentas Desa system running at http://localhost:${PORT}`);
+});

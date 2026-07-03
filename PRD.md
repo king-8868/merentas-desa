@@ -1,0 +1,355 @@
+# Merentas Desa Race Management System
+## Product Requirements Document (PRD)
+
+# 1. Project Overview
+
+Develop a web-based race management system for:
+
+KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026
+PERINGKAT SEKOLAH ZON LUAR BANDAR
+
+This system is designed for real race-day operation.
+
+The priority is:
+
+- Fast
+- Simple
+- Reliable
+- Easy to use under pressure
+- Minimal clicks
+- Automatic calculations
+
+Design Principle:
+
+Every race official should complete any action with either:
+
+- One search + Enter
+or
+- Two clicks maximum.
+
+The system must automatically calculate everything else.
+
+---
+
+# 2. Schools
+
+Preload these schools:
+
+TK - SJKC TUNG KIEW
+
+SL - SJKC SAM LAM
+
+HU - SJKC HING UNG
+
+YC - SJKC YUK CHAI
+
+CU - SJKC CHUNG UNG
+
+NS - SJKC NENG SHING
+
+KK - SJKC KWONG KOK
+
+NK - SJKC NANG KIANG
+
+SM - SJKC SING MING
+
+NP - SK NANGA PAK
+
+---
+
+# 3. Categories
+
+Category A
+
+Tahap 2 Lelaki
+
+Start Time: 8:00 AM
+
+Distance: 4 KM
+
+Category B
+
+Tahap 2 Perempuan
+
+Start Time: 8:05 AM
+
+Distance: 4 KM
+
+Category C
+
+Tahap 1
+
+Start Time: 8:10 AM
+
+Distance: 2 KM
+
+---
+
+# 4. Registration
+
+Each participant contains:
+
+- Student ID (Auto)
+- Bib Number (Auto)
+- Name
+- School
+- School Code
+- Category
+
+Bib Number example:
+
+TK-T2M-001
+
+SL-T2F-015
+
+Auto generated only.
+
+Users should never manually type Bib Numbers.
+
+> Implementation note (confirmed 2026-07-03): Bib Number is the sole
+> participant ID (no separate internal Student ID field). Category codes use
+> T2L / T2P / T1 (Lelaki/Perempuan abbreviations) instead of T2M/T2F.
+> Numbering ranges are per-school, per-category: T2L 101-199, T2P 201-299,
+> T1 301-399 (e.g. TK-T2L-101, TK-T2L-102, ... independent of SL-T2L-101, ...).
+> Bibs never change once assigned; editing a participant does not regenerate
+> the bib, only delete + recreate does.
+
+---
+
+# 5. Check-In
+
+Race day.
+
+Teacher searches:
+
+- Bib Number
+
+or
+
+- Student Name
+
+Press:
+
+Check In
+
+System automatically:
+
+- Mark attendance
+
+- Record check-in time
+
+- Update attendance statistics
+
+Only checked-in runners can appear in Finish Mode.
+
+---
+
+# 6. Race Control
+
+Administrator controls race.
+
+Buttons:
+
+Start T2 Male
+
+Start T2 Female
+
+Start T1
+
+Each category has its own timer.
+
+Timers run independently.
+
+---
+
+# 7. Finish Recording
+
+This is the most important module.
+
+Teachers NEVER calculate time manually.
+
+Teacher only:
+
+Search participant
+
+Press Finish
+
+System automatically:
+
+- Record finish time
+
+- Calculate race time
+
+- Determine category ranking
+
+- Update school points
+
+- Update school leaderboard
+
+- Update live leaderboard
+
+Everything happens instantly.
+
+---
+
+# 8. School Points
+
+Follow official competition rules.
+
+Each school uses:
+
+Top 5 finishers only.
+
+Point rules should be configurable.
+
+Do NOT hardcode scoring.
+
+---
+
+# 9. Live Leaderboard
+
+Display:
+
+Latest Finishers
+
+Top 3 by Category
+
+Overall School Ranking
+
+Auto refresh.
+
+No manual refresh.
+
+---
+
+# 10. Statistics
+
+Display:
+
+Registered
+
+Checked In
+
+Finished
+
+Not Finished
+
+Per School
+
+Per Category
+
+Update automatically.
+
+---
+
+# 11. School Management
+
+Administrator can:
+
+Add school
+
+Edit school
+
+View participants
+
+---
+
+# 12. Import
+
+Support:
+
+Excel
+
+CSV
+
+Batch registration.
+
+---
+
+# 13. Export
+
+Support:
+
+Excel
+
+CSV
+
+PDF
+
+Export:
+
+Individual Results
+
+School Results
+
+Prize Winners
+
+Certificate List
+
+---
+
+# 14. UI
+
+Modern.
+
+Apple style.
+
+Glass effect.
+
+Responsive.
+
+Suitable for projector.
+
+Suitable for desktop and tablet.
+
+---
+
+# 15. Development Rules
+
+Keep the project modular.
+
+Avoid unnecessary complexity.
+
+Every new feature must not break existing features.
+
+Do not rewrite the whole project unless necessary.
+
+Think carefully before changing architecture.
+
+Always preserve existing working functionality.
+
+---
+
+# 16. Race Day Design Principles (added 2026-07-03)
+
+This system is designed for real race-day operation.
+
+Every official action should require:
+
+- One search + Enter, or
+- Maximum two clicks.
+
+The system should minimize manual typing.
+
+Teachers should never calculate time, rankings, or school points manually.
+
+The system must automate everything after each finisher is recorded.
+
+Race-day usability is more important than visual effects.
+
+---
+
+# 17. Recovery Mode (added 2026-07-03)
+
+The system must automatically save race progress.
+
+If the browser or computer restarts during the event, the administrator
+should be able to continue the race without losing:
+
+- timers
+- check-in records
+- finish records
+- rankings
+- school points
+
+No manual recovery should be required.

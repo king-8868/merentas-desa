@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kejohanan Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html" class="active">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Ringkasan Acara</h2>
+    <div id="summary" class="stats"><p class="empty">Loading...</p></div>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Sekolah Yang Menyertai</h2>
+    <table>
+      <thead><tr><th>Kod</th><th>Nama Sekolah</th><th>Bilangan Peserta</th></tr></thead>
+      <tbody id="schoolList"></tbody>
+    </table>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Kategori</h2>
+    <table>
+      <thead><tr><th>Kod</th><th>Kategori</th><th>Bilangan Peserta</th></tr></thead>
+      <tbody id="categoryList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+async function load() {
+  const [schools, categories, students, results, checkins] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/categories'),
+    fetchJSON('/api/students'),
+    fetchJSON('/api/results'),
+    fetchJSON('/api/checkins'),
+  ]);
+
+  document.getElementById('summary').innerHTML = `
+    <div class="stat-box"><h3>${schools.length}</h3><p>Sekolah</p></div>
+    <div class="stat-box" style="background:#457b9d"><h3>${students.length}</h3><p>Peserta Berdaftar</p></div>
+    <div class="stat-box" style="background:#8ab17d"><h3>${checkins.length}</h3><p>Sudah Daftar Masuk</p></div>
+    <div class="stat-box" style="background:#2a9d8f"><h3>${results.length}</h3><p>Masa Direkod</p></div>
+    <div class="stat-box" style="background:#d62828"><h3>${students.length - results.length}</h3><p>Belum Selesai</p></div>
+  `;
+
+  document.getElementById('schoolList').innerHTML = schools.map((sch) => {
+    const count = students.filter((s) => s.schoolCode === sch.code).length;
+    return `<tr><td>${schoolBadge(sch.code, schools)}</td><td>${sch.name}</td><td>${count}</td></tr>`;
+  }).join('');
+
+  document.getElementById('categoryList').innerHTML = categories.map((cat) => {
+    const count = students.filter((s) => s.categoryCode === cat.code).length;
+    return `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>${count}</td></tr>`;
+  }).join('');
+}
+load();
+</script>
+</body>
+</html>

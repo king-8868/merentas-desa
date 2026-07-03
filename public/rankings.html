@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kedudukan &amp; Markah Sekolah - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html" class="active">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Kedudukan Keseluruhan Sekolah</h2>
+    <p class="hint">Markah sekolah dikira daripada jumlah mata 5 peserta terbaik (Top 5) sahaja bagi setiap sekolah.</p>
+    <button type="button" onclick="exportSchoolRankingCSV()">Eksport Kedudukan Sekolah (CSV)</button>
+    <table>
+      <thead><tr><th>Kedudukan</th><th>Sekolah</th><th>Jumlah Markah</th><th>Peserta Selesai</th><th>Jumlah Peserta</th></tr></thead>
+      <tbody id="schoolRanking"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Kedudukan Individu Mengikut Kategori</h2>
+    <div style="margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+      <button type="button" onclick="exportIndividualResultsCSV()">Eksport Keputusan Individu (CSV)</button>
+      <button type="button" onclick="exportPrizeWinnersCSV()">Eksport Pemenang Hadiah (CSV)</button>
+    </div>
+    <div class="tabs" id="categoryTabs"></div>
+    <div id="categoryPanels"></div>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let SCHOOLS = [];
+let CATEGORIES = [];
+let activeCategory = null;
+let LAST_DATA = null;
+
+function medalClass(rank) {
+  return rank <= 3 ? `rank-${rank}` : '';
+}
+
+function renderSchoolRanking(schoolRankings) {
+  const tbody = document.getElementById('schoolRanking');
+  if (!schoolRankings.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Tiada data lagi.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = schoolRankings.map((s) => `
+    <tr class="${medalClass(s.rank)}">
+      <td>${s.rank}</td>
+      <td>${schoolBadge(s.code, SCHOOLS)} ${s.name}</td>
+      <td><strong>${s.totalScore}</strong></td>
+      <td>${s.finishedCount}</td>
+      <td>${s.totalParticipants}</td>
+    </tr>
+  `).join('');
+}
+
+function renderCategoryTabs(categoryRankings) {
+  const tabs = document.getElementById('categoryTabs');
+  tabs.innerHTML = categoryRankings.map((c) => `
+    <button type="button" class="tab-btn ${c.code === activeCategory ? 'active' : ''}" data-code="${c.code}">
+      ${c.code} - ${c.label}
+    </button>
+  `).join('');
+  tabs.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activeCategory = btn.dataset.code;
+      load();
+    });
+  });
+}
+
+function renderCategoryPanels(categoryRankings) {
+  const panels = document.getElementById('categoryPanels');
+  const cat = categoryRankings.find((c) => c.code === activeCategory) || categoryRankings[0];
+  if (!cat) {
+    panels.innerHTML = '<p class="empty">Tiada kategori.</p>';
+    return;
+  }
+
+  const finishedRows = cat.finished.length
+    ? cat.finished.map((s) => `
+        <tr class="${medalClass(s.rank)}">
+          <td>${s.rank}</td>
+          <td><strong>${s.bib}</strong></td>
+          <td>${s.name}</td>
+          <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+          <td>${formatTime(s.time)}</td>
+          <td>${s.points}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="6" class="empty">Tiada keputusan lagi.</td></tr>';
+
+  const pendingRows = cat.pending.length
+    ? cat.pending.map((s) => `
+        <tr>
+          <td><strong>${s.bib}</strong></td>
+          <td>${s.name}</td>
+          <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+        </tr>
+      `).join('')
+    : '<tr><td colspan="3" class="empty">Semua peserta kategori ini telah selesai.</td></tr>';
+
+  panels.innerHTML = `
+    <table>
+      <thead><tr><th>Kedudukan</th><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Masa</th><th>Mata</th></tr></thead>
+      <tbody>${finishedRows}</tbody>
+    </table>
+    <h3 style="margin-top:1.5rem;">Belum Selesai</h3>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th></tr></thead>
+      <tbody>${pendingRows}</tbody>
+    </table>
+  `;
+}
+
+async function load() {
+  const [schools, categories, data] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/categories'),
+    fetchJSON('/api/rankings'),
+  ]);
+  SCHOOLS = schools;
+  CATEGORIES = categories;
+  LAST_DATA = data;
+  if (!activeCategory) activeCategory = data.categoryRankings[0]?.code;
+
+  renderSchoolRanking(data.schoolRankings);
+  renderCategoryTabs(data.categoryRankings);
+  renderCategoryPanels(data.categoryRankings);
+}
+
+function exportSchoolRankingCSV() {
+  if (!LAST_DATA) return;
+  const rows = LAST_DATA.schoolRankings.map((s) => ({
+    rank: s.rank,
+    code: s.code,
+    name: s.name,
+    totalScore: s.totalScore,
+    finishedCount: s.finishedCount,
+    totalParticipants: s.totalParticipants,
+  }));
+  const csv = toCSV(rows, [
+    { key: 'rank', label: 'Kedudukan' },
+    { key: 'code', label: 'Kod Sekolah' },
+    { key: 'name', label: 'Nama Sekolah' },
+    { key: 'totalScore', label: 'Jumlah Markah' },
+    { key: 'finishedCount', label: 'Peserta Selesai' },
+    { key: 'totalParticipants', label: 'Jumlah Peserta' },
+  ]);
+  downloadCSV('kedudukan-sekolah.csv', csv);
+}
+
+function exportIndividualResultsCSV() {
+  if (!LAST_DATA) return;
+  const rows = [];
+  LAST_DATA.categoryRankings.forEach((cat) => {
+    cat.finished.forEach((s) => {
+      const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
+      rows.push({
+        category: cat.label,
+        rank: s.rank,
+        bib: s.bib,
+        name: s.name,
+        schoolCode: s.schoolCode,
+        schoolName: school ? school.name : '',
+        time: formatTime(s.time),
+        points: s.points,
+      });
+    });
+  });
+  const csv = toCSV(rows, [
+    { key: 'category', label: 'Kategori' },
+    { key: 'rank', label: 'Kedudukan' },
+    { key: 'bib', label: 'No. Peserta' },
+    { key: 'name', label: 'Nama' },
+    { key: 'schoolCode', label: 'Kod Sekolah' },
+    { key: 'schoolName', label: 'Nama Sekolah' },
+    { key: 'time', label: 'Masa' },
+    { key: 'points', label: 'Mata' },
+  ]);
+  downloadCSV('keputusan-individu.csv', csv);
+}
+
+function exportPrizeWinnersCSV() {
+  if (!LAST_DATA) return;
+  const rows = [];
+  LAST_DATA.categoryRankings.forEach((cat) => {
+    cat.finished.slice(0, 3).forEach((s) => {
+      const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
+      rows.push({
+        category: cat.label,
+        rank: s.rank,
+        bib: s.bib,
+        name: s.name,
+        schoolCode: s.schoolCode,
+        schoolName: school ? school.name : '',
+        time: formatTime(s.time),
+      });
+    });
+  });
+  const csv = toCSV(rows, [
+    { key: 'category', label: 'Kategori' },
+    { key: 'rank', label: 'Kedudukan' },
+    { key: 'bib', label: 'No. Peserta' },
+    { key: 'name', label: 'Nama' },
+    { key: 'schoolCode', label: 'Kod Sekolah' },
+    { key: 'schoolName', label: 'Nama Sekolah' },
+    { key: 'time', label: 'Masa' },
+  ]);
+  downloadCSV('pemenang-hadiah.csv', csv);
+}
+
+load();
+setInterval(load, 5000);
+</script>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Konfigurasi Markah - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html" class="active">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Jadual Mata Mengikut Kedudukan</h2>
+    <p class="hint">Mata diberikan mengikut kedudukan peserta dalam kategorinya. Kedudukan yang melebihi jadual ini akan mendapat 0 mata.</p>
+    <table>
+      <thead><tr><th>Kedudukan</th><th>Mata</th></tr></thead>
+      <tbody id="pointsBody"></tbody>
+    </table>
+    <div style="margin: 1rem 0; display: flex; gap: 0.5rem;">
+      <button type="button" onclick="addRank()">+ Tambah Kedudukan</button>
+      <button type="button" class="danger" onclick="removeRank()">- Buang Kedudukan Terakhir</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Markah Sekolah</h2>
+    <label>Bilangan Peserta Terbaik Setiap Sekolah Yang Dikira</label>
+    <input type="number" id="topN" min="1" step="1">
+    <p class="hint">Contoh: jika ditetapkan kepada 5, hanya 5 peserta terbaik (mengikut mata) setiap sekolah dikira ke dalam jumlah markah sekolah, walaupun sekolah tersebut menghantar lebih ramai peserta.</p>
+  </div>
+
+  <div class="card">
+    <button type="button" onclick="save()">Simpan Konfigurasi</button>
+    <p id="msg"></p>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let pointsTable = [];
+
+function renderPoints() {
+  document.getElementById('pointsBody').innerHTML = pointsTable.map((pts, i) => `
+    <tr>
+      <td>Kedudukan #${i + 1}</td>
+      <td><input type="number" min="0" step="1" value="${pts}" onchange="pointsTable[${i}] = Number(this.value)" style="margin-bottom:0;"></td>
+    </tr>
+  `).join('');
+}
+
+function addRank() {
+  const last = pointsTable.length ? pointsTable[pointsTable.length - 1] : 1;
+  pointsTable.push(Math.max(0, last - 1));
+  renderPoints();
+}
+
+function removeRank() {
+  if (pointsTable.length <= 1) return;
+  pointsTable.pop();
+  renderPoints();
+}
+
+async function load() {
+  const config = await fetchJSON('/api/scoring-config');
+  pointsTable = [...config.pointsTable];
+  document.getElementById('topN').value = config.topNPerSchool;
+  renderPoints();
+}
+
+async function save() {
+  const msg = document.getElementById('msg');
+  const topNPerSchool = Number(document.getElementById('topN').value);
+  try {
+    await fetchJSON('/api/scoring-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pointsTable, topNPerSchool }),
+    });
+    msg.textContent = 'Konfigurasi markah berjaya disimpan.';
+    msg.style.color = 'green';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+}
+
+load();
+</script>
+</body>
+</html>

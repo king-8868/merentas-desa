@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pendaftaran Peserta - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html" class="active">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Daftar Peserta Baharu</h2>
+    <form id="regForm">
+      <label>Nama Peserta</label>
+      <input type="text" id="name" required>
+      <div class="form-row">
+        <div>
+          <label>Sekolah</label>
+          <select id="school" required></select>
+        </div>
+        <div>
+          <label>Kategori</label>
+          <select id="category" required></select>
+        </div>
+      </div>
+      <button type="submit">Daftar &amp; Jana No. Peserta</button>
+    </form>
+    <div id="bibResult"></div>
+    <p id="msg"></p>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Import Peserta Secara Pukal (CSV)</h2>
+    <p class="hint">Fail CSV mesti mempunyai lajur: <strong>name, schoolCode, categoryCode</strong> (susunan lajur bebas). Setiap baris diproses berasingan - jika satu baris salah, baris lain tetap berjaya diimport.</p>
+    <input type="file" id="csvFile" accept=".csv,text/csv">
+    <div style="margin: 0.5rem 0; display: flex; gap: 0.5rem;">
+      <button type="button" onclick="importCSV()">Import CSV</button>
+      <button type="button" onclick="downloadTemplate()">Muat Turun Templat CSV</button>
+    </div>
+    <div id="importResult"></div>
+  </div>
+  <div class="card">
+    <h2 class="section-title">Senarai Peserta Berdaftar</h2>
+    <div class="filter-row">
+      <select id="filterSchool"><option value="">Semua Sekolah</option></select>
+      <select id="filterCategory"><option value="">Semua Kategori</option></select>
+      <button type="button" onclick="exportStudentsCSV()">Eksport Senarai (CSV)</button>
+    </div>
+    <table>
+      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th></th></tr></thead>
+      <tbody id="studentList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let SCHOOLS = [];
+let CATEGORIES = [];
+let STUDENTS = [];
+
+async function loadOptions() {
+  [SCHOOLS, CATEGORIES] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/categories'),
+  ]);
+
+  document.getElementById('school').innerHTML =
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+  document.getElementById('category').innerHTML =
+    CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
+
+  document.getElementById('filterSchool').innerHTML +=
+    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${s.name}</option>`).join('');
+  document.getElementById('filterCategory').innerHTML +=
+    CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
+}
+
+async function loadStudents() {
+  STUDENTS = await fetchJSON('/api/students');
+  renderStudents();
+}
+
+function renderStudents() {
+  const filterSchool = document.getElementById('filterSchool').value;
+  const filterCategory = document.getElementById('filterCategory').value;
+  let list = STUDENTS;
+  if (filterSchool) list = list.filter((s) => s.schoolCode === filterSchool);
+  if (filterCategory) list = list.filter((s) => s.categoryCode === filterCategory);
+
+  const tbody = document.getElementById('studentList');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty">Tiada peserta berdaftar.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((s) => `
+    <tr>
+      <td><strong>${s.bib}</strong></td>
+      <td>${s.name}</td>
+      <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
+      <td>${categoryBadge(s.categoryCode, CATEGORIES)}</td>
+      <td><button class="danger" onclick="deleteStudent('${s.bib}')">Padam</button></td>
+    </tr>
+  `).join('');
+}
+
+async function deleteStudent(bib) {
+  if (!confirm(`Padam peserta ${bib} dan rekod masa mereka?`)) return;
+  await fetchJSON(`/api/students/${encodeURIComponent(bib)}`, { method: 'DELETE' });
+  loadStudents();
+}
+
+function downloadTemplate() {
+  const csv = toCSV(
+    [{ name: 'Ali Bin Ahmad', schoolCode: 'TK', categoryCode: 'A' }],
+    [
+      { key: 'name', label: 'name' },
+      { key: 'schoolCode', label: 'schoolCode' },
+      { key: 'categoryCode', label: 'categoryCode' },
+    ]
+  );
+  downloadCSV('templat-import-peserta.csv', csv);
+}
+
+function exportStudentsCSV() {
+  const rows = STUDENTS.map((s) => {
+    const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
+    const cat = CATEGORIES.find((c) => c.code === s.categoryCode);
+    return {
+      bib: s.bib,
+      name: s.name,
+      schoolCode: s.schoolCode,
+      schoolName: school ? school.name : '',
+      categoryCode: s.categoryCode,
+      categoryLabel: cat ? cat.label : '',
+    };
+  });
+  const csv = toCSV(rows, [
+    { key: 'bib', label: 'No. Peserta' },
+    { key: 'name', label: 'Nama' },
+    { key: 'schoolCode', label: 'Kod Sekolah' },
+    { key: 'schoolName', label: 'Nama Sekolah' },
+    { key: 'categoryCode', label: 'Kod Kategori' },
+    { key: 'categoryLabel', label: 'Kategori' },
+  ]);
+  downloadCSV('senarai-peserta.csv', csv);
+}
+
+async function importCSV() {
+  const fileInput = document.getElementById('csvFile');
+  const resultEl = document.getElementById('importResult');
+  const file = fileInput.files[0];
+  if (!file) {
+    resultEl.innerHTML = '<p style="color:red;">Sila pilih fail CSV dahulu.</p>';
+    return;
+  }
+  const text = await file.text();
+  try {
+    const res = await fetch('/api/students/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/csv' },
+      body: text,
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result.error || 'Import gagal');
+
+    let html = `<p style="color:green;font-weight:600;">${result.imported.length} peserta berjaya diimport.</p>`;
+    if (result.errors.length) {
+      html += `<p style="color:red;font-weight:600;">${result.errors.length} baris gagal:</p>`;
+      html += '<table><thead><tr><th>Baris</th><th>Sebab</th></tr></thead><tbody>';
+      html += result.errors.map((e) => `<tr><td>${e.row}</td><td>${e.reason}</td></tr>`).join('');
+      html += '</tbody></table>';
+    }
+    resultEl.innerHTML = html;
+    fileInput.value = '';
+    loadStudents();
+  } catch (err) {
+    resultEl.innerHTML = `<p style="color:red;">${err.message}</p>`;
+  }
+}
+
+document.getElementById('filterSchool').addEventListener('change', renderStudents);
+document.getElementById('filterCategory').addEventListener('change', renderStudents);
+
+document.getElementById('regForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = document.getElementById('name').value;
+  const schoolCode = document.getElementById('school').value;
+  const categoryCode = document.getElementById('category').value;
+  const msg = document.getElementById('msg');
+  const bibResult = document.getElementById('bibResult');
+  try {
+    const student = await fetchJSON('/api/students', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, schoolCode, categoryCode }),
+    });
+    bibResult.innerHTML = `<div class="bib-result">No. Peserta: ${student.bib}</div>`;
+    msg.textContent = 'Peserta berjaya didaftarkan.';
+    msg.style.color = 'green';
+    e.target.reset();
+    loadStudents();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+});
+
+loadOptions().then(loadStudents);
+</script>
+</body>
+</html>

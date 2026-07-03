@@ -1,0 +1,11 @@
+# Runtime data - regenerated automatically on first run (see lib/init-data.js).
+# Committing live race-day data (student names, results, etc.) to source
+# control doesn't make sense - it's state, not code.
+/data/*.json
+
+# OS junk
+.DS_Store
+
+# Editor
+.vscode/
+.idea/

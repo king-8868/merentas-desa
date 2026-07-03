@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pengurusan Sekolah - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav>
+    <a href="index.html">Utama</a>
+    <a href="register.html">Pendaftaran Peserta</a>
+    <a href="checkin.html">Daftar Masuk</a>
+    <a href="race-control.html">Kawalan Perlumbaan</a>
+    <a href="record.html">Rekod Tamat</a>
+    <a href="rankings.html">Kedudukan &amp; Markah Sekolah</a>
+    <a href="leaderboard.html">Papan Markah Langsung</a>
+    <a href="schools.html" class="active">Pengurusan Sekolah</a>
+    <a href="scoring.html">Konfigurasi Markah</a>
+  </nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Tambah Sekolah Baharu</h2>
+    <form id="addForm">
+      <div class="form-row">
+        <div>
+          <label>Kod Sekolah</label>
+          <input type="text" id="code" maxlength="6" placeholder="Contoh: PH" required>
+        </div>
+        <div>
+          <label>Nama Sekolah</label>
+          <input type="text" id="name" placeholder="Contoh: SJKC PEI HWA" required>
+        </div>
+      </div>
+      <button type="submit">Tambah Sekolah</button>
+    </form>
+    <p id="msg"></p>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Senarai Sekolah</h2>
+    <p class="hint">Kod sekolah kekal selamanya selepas dicipta (kerana sudah tertanam dalam nombor bib). Hanya nama boleh disunting.</p>
+    <table>
+      <thead><tr><th>Kod</th><th>Nama Sekolah</th><th>Bilangan Peserta</th><th></th></tr></thead>
+      <tbody id="schoolList"></tbody>
+    </table>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let SCHOOLS = [];
+let STUDENT_COUNTS = {};
+
+async function load() {
+  const [schools, students] = await Promise.all([
+    fetchJSON('/api/schools'),
+    fetchJSON('/api/students'),
+  ]);
+  SCHOOLS = schools;
+  STUDENT_COUNTS = {};
+  students.forEach((s) => {
+    STUDENT_COUNTS[s.schoolCode] = (STUDENT_COUNTS[s.schoolCode] || 0) + 1;
+  });
+  render();
+}
+
+function render() {
+  const tbody = document.getElementById('schoolList');
+  if (!SCHOOLS.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="empty">Tiada sekolah didaftarkan.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = SCHOOLS.map((s) => `
+    <tr data-code="${s.code}">
+      <td>${schoolBadge(s.code, SCHOOLS)}</td>
+      <td class="name-cell">${s.name}</td>
+      <td>${STUDENT_COUNTS[s.code] || 0}</td>
+      <td><button type="button" onclick="startEdit('${s.code}')">Sunting</button></td>
+    </tr>
+  `).join('');
+}
+
+function startEdit(code) {
+  const school = SCHOOLS.find((s) => s.code === code);
+  const row = document.querySelector(`tr[data-code="${code}"]`);
+  const cell = row.querySelector('.name-cell');
+  cell.innerHTML = `<input type="text" id="editName-${code}" value="${school.name}" style="margin-bottom:0;">`;
+  const actionCell = row.children[3];
+  actionCell.innerHTML = `
+    <button type="button" onclick="saveEdit('${code}')">Simpan</button>
+    <button type="button" onclick="render()">Batal</button>
+  `;
+  document.getElementById(`editName-${code}`).focus();
+}
+
+async function saveEdit(code) {
+  const input = document.getElementById(`editName-${code}`);
+  const name = input.value.trim();
+  if (!name) return;
+  try {
+    await fetchJSON(`/api/schools/${encodeURIComponent(code)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    await load();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('addForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const code = document.getElementById('code').value;
+  const name = document.getElementById('name').value;
+  const msg = document.getElementById('msg');
+  try {
+    await fetchJSON('/api/schools', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, name }),
+    });
+    msg.textContent = 'Sekolah berjaya ditambah.';
+    msg.style.color = 'green';
+    e.target.reset();
+    load();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+});
+
+load();
+</script>
+</body>
+</html>
