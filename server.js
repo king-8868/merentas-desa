@@ -27,6 +27,8 @@ require('./routes/race').register(router);
 require('./routes/results').register(router);
 require('./routes/rankings').register(router);
 require('./routes/scoring').register(router);
+require('./routes/lifecycle').register(router);
+require('./routes/audit').register(router);
 
 const server = http.createServer(async (req, res) => {
   let urlObj;

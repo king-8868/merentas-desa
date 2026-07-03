@@ -1,6 +1,8 @@
 const store = require('../lib/store');
 const { CATEGORIES, RACE_STATUS_FILE, STUDENTS_FILE, RESULTS_FILE } = require('../lib/config');
 const { requireAuth } = require('../lib/auth');
+const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
+const { logAudit } = require('../lib/audit');
 
 // Race state machine per category:
 //   NOT_STARTED -> RUNNING -> FINISHED
@@ -33,7 +35,7 @@ function buildStatus(raceStatus) {
 
 function register(router) {
   router.add('GET', '/api/race-status', async (req, res, { sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'race.view');
     if (!user) return;
     const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
     sendJSON(res, 200, buildStatus(raceStatus));
@@ -45,22 +47,30 @@ function register(router) {
   // original clock - exactly the kind of race-day data corruption the
   // write-safety design in lib/store.js exists to prevent.
   router.add('POST', '/api/race-status/:code/start', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'race.start');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
-    await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
-      const entry = raceStatus[params.code];
-      if (entry && entry.startTime) {
-        return { data: raceStatus, result: null };
-      }
-      return {
-        data: { ...raceStatus, [params.code]: { startTime: Date.now() } },
-        result: null,
-      };
-    });
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
+        const entry = raceStatus[params.code];
+        if (entry && entry.startTime) {
+          return { data: raceStatus, result: null };
+        }
+        return {
+          data: { ...raceStatus, [params.code]: { startTime: Date.now() } },
+          result: null,
+        };
+      })
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
 
+    logAudit({ actor: user.username, actorRole: user.role, action: 'race.start', target: params.code, result: 'success' });
     const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
     sendJSON(res, 200, buildStatus(raceStatus).find((s) => s.code === params.code));
   });
@@ -70,27 +80,35 @@ function register(router) {
   // (calling it again is a no-op, not an error). After this, routes/results.js
   // refuses to create, change, or delete results for this category.
   router.add('POST', '/api/race-status/:code/finish', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'race.finish');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
     let errorMsg = null;
-    await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
-      const entry = raceStatus[params.code];
-      const state = deriveState(entry);
-      if (state === 'FINISHED') return { data: raceStatus, result: null };
-      if (state === 'NOT_STARTED') {
-        errorMsg = `Perlumbaan kategori ${category.label} belum bermula - tidak boleh ditamatkan`;
-        return { data: raceStatus, result: null };
-      }
-      return {
-        data: { ...raceStatus, [params.code]: { ...entry, finishedAt: Date.now() } },
-        result: null,
-      };
-    });
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
+        const entry = raceStatus[params.code];
+        const state = deriveState(entry);
+        if (state === 'FINISHED') return { data: raceStatus, result: null };
+        if (state === 'NOT_STARTED') {
+          errorMsg = `Perlumbaan kategori ${category.label} belum bermula - tidak boleh ditamatkan`;
+          return { data: raceStatus, result: null };
+        }
+        return {
+          data: { ...raceStatus, [params.code]: { ...entry, finishedAt: Date.now() } },
+          result: null,
+        };
+      })
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
     if (errorMsg) return sendJSON(res, 400, { error: errorMsg });
 
+    logAudit({ actor: user.username, actorRole: user.role, action: 'race.finish', target: params.code, result: 'success' });
     const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
     sendJSON(res, 200, buildStatus(raceStatus).find((s) => s.code === params.code));
   });
@@ -101,8 +119,10 @@ function register(router) {
   // clock (a conflicting-timestamp data integrity violation). Also blocked
   // once FINISHED - that's a terminal state within race control.
   router.add('POST', '/api/race-status/:code/reset', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'race.reset');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
     const category = CATEGORIES.find((c) => c.code === params.code);
     if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
 
@@ -124,12 +144,18 @@ function register(router) {
       });
     }
 
-    await store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
-      const next = { ...raceStatus };
-      delete next[params.code];
-      return { data: next, result: null };
-    });
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
+        const next = { ...raceStatus };
+        delete next[params.code];
+        return { data: next, result: null };
+      })
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
 
+    logAudit({ actor: user.username, actorRole: user.role, action: 'race.reset', target: params.code, result: 'success' });
     const updatedRaceStatus = store.readJSON(RACE_STATUS_FILE, {});
     sendJSON(res, 200, buildStatus(updatedRaceStatus).find((s) => s.code === params.code));
   });

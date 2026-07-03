@@ -18,7 +18,7 @@ function validate(body) {
 
 function register(router) {
   router.add('GET', '/api/scoring-config', async (req, res, { sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin']);
+    const user = requireAuth(req, res, sendJSON, 'scoring.view');
     if (!user) return;
     sendJSON(res, 200, store.readJSON(SCORING_CONFIG_FILE, { pointsTable: [], topNPerSchool: 5 }));
   });
@@ -28,7 +28,7 @@ function register(router) {
   // routes/rankings.js reads it fresh on every request, so a change here
   // takes effect immediately, no restart needed.
   router.add('PUT', '/api/scoring-config', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin']);
+    const user = requireAuth(req, res, sendJSON, 'scoring.update');
     if (!user) return;
 
     const body = await parseBody(req);

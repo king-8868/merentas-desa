@@ -1,10 +1,12 @@
 const store = require('../lib/store');
 const { STUDENTS_FILE, CHECKINS_FILE } = require('../lib/config');
 const { requireAuth } = require('../lib/auth');
+const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
+const { logAudit } = require('../lib/audit');
 
 function register(router) {
   router.add('GET', '/api/checkins', async (req, res, { sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'checkin.view');
     if (!user) return;
     sendJSON(res, 200, store.readJSON(CHECKINS_FILE, []));
   });
@@ -13,8 +15,10 @@ function register(router) {
   // existing record (no error) - a teacher double-tapping or a barcode
   // scanner double-firing should never surface an error on race day.
   router.add('POST', '/api/checkins', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'checkin.create');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const body = await parseBody(req);
     const { bib } = body;
@@ -27,24 +31,50 @@ function register(router) {
       return sendJSON(res, 404, { error: 'Bib not found' });
     }
 
-    const checkin = await store.update(CHECKINS_FILE, [], (checkins) => {
-      const existing = checkins.find((c) => c.bib === bib);
-      if (existing) return { data: checkins, result: existing };
-      const record = { bib, checkInTime: Date.now() };
-      return { data: [...checkins, record], result: record };
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(CHECKINS_FILE, [], (checkins) => {
+        const existing = checkins.find((c) => c.bib === bib);
+        if (existing) return { data: checkins, result: existing };
+        const record = { bib, checkInTime: Date.now() };
+        return { data: [...checkins, record], result: record };
+      })
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'checkin',
+      target: bib,
+      result: 'success',
     });
-    sendJSON(res, 201, { ...checkin, student });
+    sendJSON(res, 201, { ...writeOutcome.result, student });
   });
 
   router.add('DELETE', '/api/checkins/:bib', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'checkin.delete');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const { bib } = params;
-    await store.update(CHECKINS_FILE, [], (checkins) => ({
-      data: checkins.filter((c) => c.bib !== bib),
-      result: null,
-    }));
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(CHECKINS_FILE, [], (checkins) => ({
+        data: checkins.filter((c) => c.bib !== bib),
+        result: null,
+      }))
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'checkin.undo',
+      target: bib,
+      result: 'success',
+    });
     sendJSON(res, 200, { ok: true });
   });
 }

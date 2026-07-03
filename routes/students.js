@@ -4,6 +4,8 @@ const { generateBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
 const { deriveState } = require('./race');
 const { getSessionUser, requireAuth } = require('../lib/auth');
+const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
+const { logAudit } = require('../lib/audit');
 
 function register(router) {
   // Public (needed by the public leaderboard) - but if a School Manager
@@ -29,8 +31,10 @@ function register(router) {
   // what the request body says, so a tampered request can't register into
   // another school.
   router.add('POST', '/api/students', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    const user = requireAuth(req, res, sendJSON, 'student.create');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const body = await parseBody(req);
     const { name, categoryCode } = body;
@@ -49,18 +53,37 @@ function register(router) {
       return sendJSON(res, 400, { error: 'Invalid categoryCode' });
     }
 
-    let bib;
+    // generateBib (which touches counters.json, itself event-scoped) and the
+    // students.json write both happen inside the same lifecycle-gated
+    // section - otherwise a bib could be burned against the wrong event's
+    // counter if the event is archived/cleared between the two.
+    let writeOutcome;
     try {
-      bib = await generateBib(schoolCode, categoryCode);
+      writeOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
+        const bib = await generateBib(schoolCode, categoryCode);
+        const student = { bib, name: String(name).trim(), schoolCode, categoryCode };
+        await store.update(STUDENTS_FILE, [], (students) => ({
+          data: [...students, student],
+          result: student,
+        }));
+        return student;
+      });
     } catch (err) {
       return sendJSON(res, 400, { error: err.message });
     }
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
 
-    const student = { bib, name: String(name).trim(), schoolCode, categoryCode };
-    await store.update(STUDENTS_FILE, [], (students) => ({
-      data: [...students, student],
-      result: student,
-    }));
+    const student = writeOutcome.result;
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'student.create',
+      target: student.bib,
+      result: 'success',
+      detail: student.name,
+    });
     sendJSON(res, 201, student);
   });
 
@@ -74,8 +97,10 @@ function register(router) {
   // rows are all forced to their own school - other schools' rows in the
   // same file become errors, not silent corrections.
   router.add('POST', '/api/students/import', async (req, res, { sendJSON, parseRawBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    const user = requireAuth(req, res, sendJSON, 'student.import');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const text = await parseRawBody(req);
     const { headers, rows } = parseCSV(text);
@@ -117,19 +142,38 @@ function register(router) {
         continue;
       }
 
+      // Each row commits inside its own lifecycle-gated section (same
+      // reasoning as POST /api/students above) - if the event is
+      // archived/cleared mid-import, remaining rows fail gracefully into
+      // `errors` instead of silently landing in a new event's fresh data.
       try {
-        const bib = await generateBib(schoolCode, categoryCode);
-        const student = { bib, name, schoolCode, categoryCode };
-        await store.update(STUDENTS_FILE, [], (students) => ({
-          data: [...students, student],
-          result: student,
-        }));
-        imported.push({ row: rowNum, bib, name });
+        const rowOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
+          const bib = await generateBib(schoolCode, categoryCode);
+          const student = { bib, name, schoolCode, categoryCode };
+          await store.update(STUDENTS_FILE, [], (students) => ({
+            data: [...students, student],
+            result: student,
+          }));
+          return student;
+        });
+        if (!rowOutcome.ok) {
+          errors.push({ row: rowNum, reason: rowOutcome.error });
+          continue;
+        }
+        imported.push({ row: rowNum, bib: rowOutcome.result.bib, name });
       } catch (err) {
         errors.push({ row: rowNum, reason: err.message });
       }
     }
 
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'student.import',
+      target: null,
+      result: errors.length ? 'partial' : 'success',
+      detail: `${imported.length} imported, ${errors.length} failed`,
+    });
     sendJSON(res, 200, { imported, errors });
   });
 
@@ -139,8 +183,10 @@ function register(router) {
   // result too, silently bypassing the "results are immutable after
   // FINISHED" rule in routes/results.js.
   router.add('DELETE', '/api/students/:bib', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'school']);
+    const user = requireAuth(req, res, sendJSON, 'student.delete');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const { bib } = params;
     const students = store.readJSON(STUDENTS_FILE, []);
@@ -162,18 +208,32 @@ function register(router) {
         }
       }
     }
-    await store.update(STUDENTS_FILE, [], (students) => ({
-      data: students.filter((s) => s.bib !== bib),
-      result: null,
-    }));
-    await store.update(RESULTS_FILE, [], (results) => ({
-      data: results.filter((r) => r.bib !== bib),
-      result: null,
-    }));
-    await store.update(CHECKINS_FILE, [], (checkins) => ({
-      data: checkins.filter((c) => c.bib !== bib),
-      result: null,
-    }));
+    // All three files are cleared inside one lifecycle-gated section so the
+    // deletion is all-or-nothing relative to an in-flight archive/clear.
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
+      await store.update(STUDENTS_FILE, [], (students) => ({
+        data: students.filter((s) => s.bib !== bib),
+        result: null,
+      }));
+      await store.update(RESULTS_FILE, [], (results) => ({
+        data: results.filter((r) => r.bib !== bib),
+        result: null,
+      }));
+      await store.update(CHECKINS_FILE, [], (checkins) => ({
+        data: checkins.filter((c) => c.bib !== bib),
+        result: null,
+      }));
+    });
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'student.delete',
+      target: bib,
+      result: 'success',
+    });
     sendJSON(res, 200, { ok: true });
   });
 }

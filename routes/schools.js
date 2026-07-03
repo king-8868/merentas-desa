@@ -11,7 +11,7 @@ function register(router) {
   });
 
   router.add('POST', '/api/schools', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin']);
+    const user = requireAuth(req, res, sendJSON, 'school.create');
     if (!user) return;
     const body = await parseBody(req);
     const { code, name } = body;
@@ -41,7 +41,7 @@ function register(router) {
   // it's baked into every bib number and counter key already issued for that
   // school, so changing it would silently orphan historical data.
   router.add('PUT', '/api/schools/:code', async (req, res, { params, sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin']);
+    const user = requireAuth(req, res, sendJSON, 'school.update');
     if (!user) return;
     const body = await parseBody(req);
     const { name } = body;

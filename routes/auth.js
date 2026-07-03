@@ -9,6 +9,7 @@ const {
   parseCookies,
   requireAuth,
 } = require('../lib/auth');
+const { logAudit } = require('../lib/audit');
 
 // 12 hours - long enough to cover a full race day, short enough that a lost
 // or shared device doesn't stay logged in indefinitely. No Secure flag: this
@@ -44,6 +45,14 @@ function register(router) {
     const users = store.readJSON(USERS_FILE, []);
     const user = users.find((u) => u.username.toLowerCase() === String(username).toLowerCase());
     if (!user || !verifyPassword(password, user.salt, user.passwordHash)) {
+      logAudit({
+        actor: String(username),
+        actorRole: user ? user.role : null,
+        action: 'login',
+        target: String(username),
+        result: 'denied',
+        detail: 'invalid credentials',
+      });
       return sendJSON(res, 401, { error: 'Nama pengguna atau kata laluan salah' });
     }
 
@@ -53,10 +62,12 @@ function register(router) {
       result: null,
     }));
     setSessionCookie(res, token);
+    logAudit({ actor: user.username, actorRole: user.role, action: 'login', target: user.username, result: 'success' });
     sendJSON(res, 200, publicUser(user));
   });
 
   router.add('POST', '/api/auth/logout', async (req, res, { sendJSON }) => {
+    const sessionUser = getSessionUser(req);
     const token = parseCookies(req).session;
     if (token) {
       await store.update(SESSIONS_FILE, [], (sessions) => ({
@@ -65,6 +76,15 @@ function register(router) {
       }));
     }
     clearSessionCookie(res);
+    if (sessionUser) {
+      logAudit({
+        actor: sessionUser.username,
+        actorRole: sessionUser.role,
+        action: 'logout',
+        target: sessionUser.username,
+        result: 'success',
+      });
+    }
     sendJSON(res, 200, { ok: true });
   });
 
@@ -113,7 +133,7 @@ function register(router) {
   // default official account, but nothing in the auth logic assumes that's
   // the only one.
   router.add('POST', '/api/auth/users', async (req, res, { sendJSON, parseBody }) => {
-    const sessionUser = requireAuth(req, res, sendJSON, ['admin']);
+    const sessionUser = requireAuth(req, res, sendJSON, 'user.create');
     if (!sessionUser) return;
 
     const body = await parseBody(req);

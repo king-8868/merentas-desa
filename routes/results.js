@@ -2,6 +2,8 @@ const store = require('../lib/store');
 const { STUDENTS_FILE, RESULTS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, CATEGORIES } = require('../lib/config');
 const { deriveState } = require('./race');
 const { requireAuth } = require('../lib/auth');
+const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
+const { logAudit } = require('../lib/audit');
 
 function getCategoryStatus(categoryCode) {
   const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
@@ -27,8 +29,10 @@ function register(router) {
   // a mistake requires DELETE /api/results/:bib first, then a fresh POST -
   // an explicit two-step action instead of a silent single-step overwrite.
   router.add('POST', '/api/results', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin']);
+    const user = requireAuth(req, res, sendJSON, 'result.manual');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const body = await parseBody(req);
     const { bib, time } = body;
@@ -55,10 +59,23 @@ function register(router) {
       });
     }
 
-    await store.update(RESULTS_FILE, [], (results) => ({
-      data: [...results, { bib, time, recordedAt: Date.now() }],
-      result: null,
-    }));
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RESULTS_FILE, [], (results) => ({
+        data: [...results, { bib, time, recordedAt: Date.now() }],
+        result: null,
+      }))
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'result.manual',
+      target: bib,
+      result: 'success',
+      detail: `time=${time}`,
+    });
     sendJSON(res, 200, { ok: true });
   });
 
@@ -73,8 +90,10 @@ function register(router) {
   // already-finished bib returns the original result untouched, rather than
   // overwriting a real finish with a later, meaningless timestamp.
   router.add('POST', '/api/results/finish', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'result.finish');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const body = await parseBody(req);
     const { bib } = body;
@@ -105,23 +124,39 @@ function register(router) {
       });
     }
 
-    const finishResult = await store.update(RESULTS_FILE, [], (results) => {
-      const existing = results.find((r) => r.bib === bib);
-      if (existing) return { data: results, result: existing };
-      const now = Date.now();
-      const elapsedSeconds = Math.max(0, Math.floor((now - categoryStatus.startTime) / 1000));
-      const record = { bib, time: elapsedSeconds, recordedAt: now };
-      return { data: [...results, record], result: record };
-    });
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RESULTS_FILE, [], (results) => {
+        const existing = results.find((r) => r.bib === bib);
+        if (existing) return { data: results, result: existing };
+        const now = Date.now();
+        const elapsedSeconds = Math.max(0, Math.floor((now - categoryStatus.startTime) / 1000));
+        const record = { bib, time: elapsedSeconds, recordedAt: now };
+        return { data: [...results, record], result: record };
+      })
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    const finishResult = writeOutcome.result;
 
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'result.finish',
+      target: bib,
+      result: 'success',
+      detail: `time=${finishResult.time}`,
+    });
     sendJSON(res, 201, { ...finishResult, student });
   });
 
   // Blocked once the participant's category race is FINISHED - a recorded
   // result becomes immutable at that point (see routes/race.js's /finish).
   router.add('DELETE', '/api/results/:bib', async (req, res, { params, sendJSON }) => {
-    const user = requireAuth(req, res, sendJSON, ['admin', 'official']);
+    const user = requireAuth(req, res, sendJSON, 'result.delete');
     if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
 
     const { bib } = params;
     const students = store.readJSON(STUDENTS_FILE, []);
@@ -134,10 +169,22 @@ function register(router) {
         });
       }
     }
-    await store.update(RESULTS_FILE, [], (results) => ({
-      data: results.filter((r) => r.bib !== bib),
-      result: null,
-    }));
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
+      store.update(RESULTS_FILE, [], (results) => ({
+        data: results.filter((r) => r.bib !== bib),
+        result: null,
+      }))
+    );
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'result.delete',
+      target: bib,
+      result: 'success',
+    });
     sendJSON(res, 200, { ok: true });
   });
 }
