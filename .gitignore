@@ -6,6 +6,12 @@
 # exact same kind of real student data as the live files.
 /data/**
 
+# 1.4: automatic disaster-recovery snapshots (see lib/backup.js) - holds the
+# exact same kind of real data (password hashes, student records) as /data,
+# just short-lived and routinely pruned. Same reasoning, same treatment -
+# this was missed when /backup was introduced and is fixed here.
+/backup/**
+
 # OS junk
 .DS_Store
 
