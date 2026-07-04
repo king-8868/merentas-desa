@@ -1,5 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const { requireAuth } = require('../lib/auth');
 const { getLifecycleState, transitionLifecycle } = require('../lib/lifecycle');
+const { computeRankings } = require('./rankings');
 
 function register(router) {
   // Any logged-in role can see the current state - a Race Official or
@@ -35,6 +38,22 @@ function register(router) {
     if (!user) return;
     const result = await transitionLifecycle('archive', user);
     if (!result.ok) return sendJSON(res, 400, { error: result.error });
+    // 1.4: the archive already has the raw data (students/results/etc) that
+    // school scores and race history are computed from - this just also
+    // saves the *computed* rankings/points as of the moment of archiving,
+    // using the same computeRankings() routes/rankings.js already exposes
+    // for the live leaderboard. No scoring logic here, just an extra saved
+    // snapshot of its output.
+    if (result.archivePath) {
+      try {
+        fs.writeFileSync(
+          path.join(result.archivePath, 'rankings-snapshot.json'),
+          JSON.stringify(computeRankings(), null, 2)
+        );
+      } catch (err) {
+        console.error('Archive: failed to save rankings snapshot:', err.message);
+      }
+    }
     sendJSON(res, 200, { ...result.state, archivePath: result.archivePath });
   });
 

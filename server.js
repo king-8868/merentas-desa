@@ -1,12 +1,15 @@
 const http = require('http');
 const os = require('os');
 
-const { PUBLIC_DIR } = require('./lib/config');
+const { PUBLIC_DIR, SYSTEM_VERSION, CURRENT_EVENT_LINE1 } = require('./lib/config');
 const { Router } = require('./lib/router');
 const { sendJSON, parseBody, parseRawBody, serveStatic } = require('./lib/http-helpers');
 const initData = require('./lib/init-data');
+const { checkIntegrity } = require('./lib/integrity');
+const { startBackupScheduler, getLastBackup } = require('./lib/backup');
 
 const PORT = process.env.PORT || 3000;
+const BACKUP_INTERVAL_MINUTES = Number(process.env.BACKUP_INTERVAL_MINUTES) || 15;
 
 // Race-day reliability net: an unexpected error must never take the whole
 // server down mid-event. Log it and keep serving.
@@ -79,8 +82,14 @@ function getLanAddresses() {
 }
 
 initData();
+checkIntegrity();
+startBackupScheduler(BACKUP_INTERVAL_MINUTES);
+
 server.listen(PORT, () => {
+  const lastBackup = getLastBackup();
   console.log(`Merentas Desa system running:`);
+  console.log(`  - Version: ${SYSTEM_VERSION}`);
+  console.log(`  - Event:   ${CURRENT_EVENT_LINE1}`);
   console.log(`  - Local:   http://localhost:${PORT}`);
   const lanAddresses = getLanAddresses();
   if (lanAddresses.length) {
@@ -89,4 +98,6 @@ server.listen(PORT, () => {
   } else {
     console.log(`  - Network: no LAN address detected (check WiFi/network connection)`);
   }
+  console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to /backup`);
+  console.log(`  - Last backup: ${lastBackup ? new Date(lastBackup.timestamp).toLocaleString() : '(none yet - one is being taken now)'}`);
 });
