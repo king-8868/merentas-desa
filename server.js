@@ -112,3 +112,22 @@ server.listen(PORT, () => {
   console.log(`  - Backup system: enabled`);
   console.log(`  - Restore mode:  ${isRestoreModeEnabled() ? 'ENABLED (RESTORE_MODE=enabled)' : 'disabled by default'}`);
 });
+
+// Deployment compatibility: platforms like Railway send SIGTERM before
+// stopping/restarting a container (redeploys, scaling, etc.), not just
+// Ctrl+C. Without handling it, the process would be killed immediately,
+// potentially mid-write. server.close() stops accepting new connections and
+// waits for in-flight requests (including any in-progress store.js write)
+// to finish before exiting - the same "never corrupt data on shutdown"
+// principle this project already applies to unexpected errors, extended to
+// expected/deliberate shutdowns too. No effect on local dev - nothing sends
+// these signals unless the host platform does.
+function shutdown(signal) {
+  console.log(`\n${signal} received, shutting down gracefully...`);
+  server.close(() => {
+    console.log('Server closed, no in-flight requests remain.');
+    process.exit(0);
+  });
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
