@@ -100,6 +100,7 @@ const NAV_ITEMS = [
   { href: 'scoring.html', label: 'Konfigurasi Markah' },
   { href: 'users.html', label: 'Pengurusan Pengguna' },
   { href: 'system-info.html', label: 'Maklumat Sistem' },
+  { href: 'event-settings.html', label: 'Tetapan Acara' },
 ];
 
 // Which nav links each role gets to see. Backend routes are the real
@@ -107,7 +108,7 @@ const NAV_ITEMS = [
 // menu offers. 'public' is for an anonymous visitor (currently only
 // leaderboard.html renders without requiring a session).
 const NAV_VISIBILITY = {
-  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html'],
+  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html', 'event-settings.html'],
   school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
   official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
   public: ['leaderboard.html'],
@@ -157,6 +158,32 @@ async function renderPublicPageNav() {
   } catch (err) {
     renderNav('public');
   }
+}
+
+// Usability patch: wraps a password <input> with a 👁️/🙈 toggle button that
+// switches it between type="password" and type="text". Purely a display
+// convenience for the person typing - does not touch how the value is
+// submitted or validated. Safe to call more than once on the same input
+// (e.g. a dynamically-created reset-password field) - guarded so it never
+// wraps the same input twice.
+function addPasswordToggle(input) {
+  if (!input || input.dataset.toggleAdded) return;
+  input.dataset.toggleAdded = 'true';
+  const wrapper = document.createElement('span');
+  wrapper.className = 'password-field-wrapper';
+  input.parentNode.insertBefore(wrapper, input);
+  wrapper.appendChild(input);
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'password-toggle';
+  toggle.textContent = '👁️';
+  toggle.setAttribute('aria-label', 'Tunjuk/Sembunyi kata laluan');
+  toggle.addEventListener('click', () => {
+    const showing = input.type === 'text';
+    input.type = showing ? 'password' : 'text';
+    toggle.textContent = showing ? '👁️' : '🙈';
+  });
+  wrapper.appendChild(toggle);
 }
 
 function addLogoutLink() {
@@ -218,6 +245,34 @@ async function requireLogin(allowedRoles) {
   addUserBadge(user);
   return user;
 }
+
+// Usability patch: the event title/year used to be hardcoded text baked
+// into every page's <h1>/<h2> (and a shorter "KEJOHANAN MERENTAS DESA
+// {year}" version on login.html/change-password.html). Both are now
+// data/event-config.json (see routes/system.js), editable from
+// event-settings.html - this fetches it and overwrites whatever static text
+// is in the markup, so every page (including the public leaderboard, hence
+// no auth here) shows the current title/year without needing a code change.
+// Self-installs like addFooter() below - runs on every page since app.js is
+// loaded everywhere. If the fetch fails for any reason, the static fallback
+// text already in the HTML stays as-is rather than showing something blank.
+async function applyEventBranding() {
+  let config;
+  try {
+    config = await fetchJSON('/api/event-config');
+  } catch (err) {
+    return;
+  }
+  const h1 = document.querySelector('header h1, .login-card h1');
+  const h2 = document.querySelector('header h2');
+  if (h1 && h1.closest('.login-card')) {
+    h1.textContent = `KEJOHANAN MERENTAS DESA ${config.year}`;
+  } else {
+    if (h1) h1.textContent = config.titleLine1;
+    if (h2) h2.textContent = config.titleLine2 || '';
+  }
+}
+applyEventBranding();
 
 // 1.3: consistent footer on every page. Self-installs from here (app.js is
 // already included on all 13 pages, including the public leaderboard) so no

@@ -187,6 +187,31 @@ button:disabled:hover { background: #b7bec7; transform: none; box-shadow: none; 
 button.danger { background: var(--red); box-shadow: 0 2px 10px rgba(214, 40, 40, 0.3); }
 button.danger:hover { background: #a81f1f; box-shadow: 0 4px 16px rgba(214, 40, 40, 0.4); }
 
+/* Usability patch: password visibility toggle, added by app.js's
+   addPasswordToggle() - wraps a password <input> so the eye button can be
+   positioned inside it without changing the surrounding form layout. */
+.password-field-wrapper { position: relative; display: block; }
+.password-field-wrapper input { padding-right: 2.6rem; width: 100%; }
+/* users.html's inline reset-password field sits beside two buttons in a
+   table cell - it needs to size to its own input's width, not stretch full
+   block width the way a form field does. */
+.action-cell .password-field-wrapper { display: inline-block; vertical-align: middle; }
+.action-cell .password-field-wrapper input { width: 140px; }
+.password-toggle {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0.3rem 0.5rem;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--text-secondary);
+}
+.password-toggle:hover { background: none; box-shadow: none; transform: translateY(-50%); }
+
 table {
   width: 100%;
   border-collapse: collapse;

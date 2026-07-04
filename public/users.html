@@ -83,11 +83,13 @@ function startReset(username) {
   const row = document.querySelector(`tr[data-username="${CSS.escape(username)}"]`);
   const cell = row.querySelector('.action-cell');
   cell.innerHTML = `
-    <input type="text" id="resetPw-${escapeHTML(username)}" placeholder="Kata laluan sementara baharu" minlength="6" style="margin-bottom:0;width:auto;display:inline-block;">
+    <input type="password" id="resetPw-${escapeHTML(username)}" placeholder="Kata laluan sementara baharu" minlength="6" style="margin-bottom:0;">
     <button type="button" onclick="confirmReset('${escapeHTML(username)}')">Sahkan</button>
     <button type="button" onclick="load()">Batal</button>
   `;
-  document.getElementById(`resetPw-${username}`).focus();
+  const input = document.getElementById(`resetPw-${username}`);
+  addPasswordToggle(input);
+  input.focus();
 }
 
 async function confirmReset(username) {
@@ -97,6 +99,7 @@ async function confirmReset(username) {
     alert('Kata laluan sementara mesti sekurang-kurangnya 6 aksara');
     return;
   }
+  if (!confirm(`Adakah anda pasti mahu menetapkan semula kata laluan untuk "${username}"? Kata laluan sedia ada akan terus tidak sah.`)) return;
   try {
     await fetchJSON(`/api/users/${encodeURIComponent(username)}/reset-password`, {
       method: 'POST',

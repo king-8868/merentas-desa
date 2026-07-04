@@ -1,13 +1,19 @@
 const os = require('os');
+const store = require('../lib/store');
 const { requireAuth } = require('../lib/auth');
+const { logAudit } = require('../lib/audit');
 const {
   SYSTEM_NAME,
-  CURRENT_EVENT_LINE1,
-  CURRENT_EVENT_LINE2,
   DEVELOPER,
   SYSTEM_VERSION,
+  EVENT_CONFIG_FILE,
+  SEED_EVENT_CONFIG,
 } = require('../lib/config');
 const { listBackups, getLastBackup, restoreBackup, isRestoreModeEnabled } = require('../lib/backup');
+
+function readEventConfig() {
+  return store.readJSON(EVENT_CONFIG_FILE, SEED_EVENT_CONFIG);
+}
 
 const PORT = process.env.PORT || 3000;
 
@@ -33,9 +39,11 @@ function register(router) {
     if (!user) return;
 
     const lastBackup = getLastBackup();
+    const eventConfig = readEventConfig();
     sendJSON(res, 200, {
       systemName: SYSTEM_NAME,
-      currentEvent: [CURRENT_EVENT_LINE1, CURRENT_EVENT_LINE2],
+      currentEvent: [eventConfig.titleLine1, eventConfig.titleLine2],
+      eventYear: eventConfig.year,
       developer: DEVELOPER,
       version: SYSTEM_VERSION,
       serverStatus: 'running',
@@ -52,6 +60,41 @@ function register(router) {
       backupSystemEnabled: true,
       restoreModeEnabled: isRestoreModeEnabled(),
     });
+  });
+
+  // Usability patch: event title/year, previously hardcoded on every page.
+  // Public/unauthenticated - the leaderboard (no login) needs the same
+  // title the authenticated pages show, same reasoning as GET /api/schools.
+  router.add('GET', '/api/event-config', async (req, res, { sendJSON }) => {
+    sendJSON(res, 200, readEventConfig());
+  });
+
+  router.add('PUT', '/api/event-config', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, 'event.update');
+    if (!user) return;
+
+    const body = await parseBody(req);
+    const titleLine1 = String(body.titleLine1 || '').trim();
+    const titleLine2 = String(body.titleLine2 || '').trim();
+    const year = Number(body.year);
+    if (!titleLine1) {
+      return sendJSON(res, 400, { error: 'Baris pertama tajuk acara diperlukan' });
+    }
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return sendJSON(res, 400, { error: 'Tahun mesti nombor sah (2000-2100)' });
+    }
+
+    const config = { titleLine1, titleLine2, year };
+    await store.update(EVENT_CONFIG_FILE, SEED_EVENT_CONFIG, () => ({ data: config, result: null }));
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'event.update',
+      target: null,
+      result: 'success',
+      detail: `titleLine1="${titleLine1}", titleLine2="${titleLine2}", year=${year}`,
+    });
+    sendJSON(res, 200, config);
   });
 
   // 1.4: lists available disaster-recovery snapshots (see lib/backup.js) so

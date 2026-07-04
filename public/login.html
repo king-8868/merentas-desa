@@ -31,6 +31,8 @@ main { display: flex; align-items: center; justify-content: center; flex: 1; }
 </main>
 <script src="app.js"></script>
 <script>
+addPasswordToggle(document.getElementById('password'));
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value;

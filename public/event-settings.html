@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tetapan Acara - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav></nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Tajuk &amp; Tahun Acara</h2>
+    <p class="hint">Perubahan di sini akan dipaparkan di semua halaman (termasuk Papan Markah Langsung) sebaik sahaja halaman tersebut dimuat semula.</p>
+    <form id="titleForm">
+      <label>Baris 1 (Tajuk Utama)</label>
+      <input type="text" id="titleLine1" required>
+      <label>Baris 2 (Sub-tajuk)</label>
+      <input type="text" id="titleLine2">
+      <label>Tahun</label>
+      <input type="number" id="year" min="2000" max="2100" required style="max-width:160px;">
+      <button type="submit">Simpan</button>
+    </form>
+    <p id="titleMsg"></p>
+  </div>
+
+  <div class="card">
+    <h2 class="section-title">Status Kitaran Hayat Acara (Event Lifecycle)</h2>
+    <p class="hint">Guna butang ini untuk menutup, mengarkibkan, dan memulakan acara baharu pada akhir hari perlumbaan. Jujukan ini tidak boleh dilangkau - sistem akan menolak sebarang tindakan di luar urutan.</p>
+    <table>
+      <tbody>
+        <tr><th style="text-align:left;width:30%;">Keadaan Semasa</th><td id="lifecycleState">Memuatkan...</td></tr>
+        <tr><th style="text-align:left;">Diubah Oleh</th><td id="lifecycleChangedBy">-</td></tr>
+        <tr><th style="text-align:left;">Masa Diubah</th><td id="lifecycleChangedAt">-</td></tr>
+      </tbody>
+    </table>
+    <div class="form-row" style="margin-top:1rem;">
+      <button type="button" id="btnOpen" onclick="transition('open')">Buka Semula Acara</button>
+      <button type="button" id="btnClose" onclick="transition('close')">Tutup Acara</button>
+      <button type="button" id="btnArchive" onclick="transition('archive')">Arkibkan Acara Semasa</button>
+      <button type="button" id="btnCreateNew" onclick="transition('createNew')">Cipta Acara Baharu (Tahun Baharu)</button>
+    </div>
+    <p id="lifecycleMsg"></p>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+const LIFECYCLE_ENDPOINTS = { open: 'open', close: 'close', archive: 'archive', createNew: 'create-new' };
+const LIFECYCLE_CONFIRM_TEXT = {
+  open: 'Buka semula acara? Ini membolehkan pendaftaran/perlumbaan diteruskan.',
+  close: 'Tutup acara semasa? Semua pendaftaran, daftar masuk, kawalan perlumbaan dan rekod keputusan akan dihentikan sehingga acara dibuka semula.',
+  archive: 'Arkibkan acara semasa? Data semasa (peserta, keputusan, dll) akan disimpan kekal ke dalam arkib sebelum apa-apa dikosongkan.',
+  createNew: 'Cipta acara BAHARU? Data acara semasa (peserta, keputusan, daftar masuk) akan DIKOSONGKAN - data lama kekal selamat dalam arkib yang baru sahaja dibuat. Tetapan sekolah, pengguna dan konfigurasi markah TIDAK akan disentuh, jadi acara baharu ini menggunakan tetapan yang sama seperti sekarang.',
+};
+
+async function loadTitle() {
+  const config = await fetchJSON('/api/event-config');
+  document.getElementById('titleLine1').value = config.titleLine1;
+  document.getElementById('titleLine2').value = config.titleLine2 || '';
+  document.getElementById('year').value = config.year;
+}
+
+async function loadLifecycle() {
+  const state = await fetchJSON('/api/lifecycle');
+  document.getElementById('lifecycleState').textContent = state.state;
+  document.getElementById('lifecycleChangedBy').textContent = state.changedBy || '-';
+  document.getElementById('lifecycleChangedAt').textContent = state.changedAt ? new Date(state.changedAt).toLocaleString('ms-MY') : '-';
+
+  // Mirrors the same valid-transition rules the backend enforces (see
+  // lib/lifecycle.js) - purely a UX convenience so an obviously-invalid
+  // button isn't even clickable; the server rejects it either way regardless.
+  const allowed = {
+    OPEN: ['close'],
+    CLOSED: ['open', 'archive'],
+    ARCHIVED: ['createNew'],
+  }[state.state] || [];
+  document.getElementById('btnOpen').disabled = !allowed.includes('open');
+  document.getElementById('btnClose').disabled = !allowed.includes('close');
+  document.getElementById('btnArchive').disabled = !allowed.includes('archive');
+  document.getElementById('btnCreateNew').disabled = !allowed.includes('createNew');
+}
+
+document.getElementById('titleForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById('titleMsg');
+  try {
+    await fetchJSON('/api/event-config', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        titleLine1: document.getElementById('titleLine1').value,
+        titleLine2: document.getElementById('titleLine2').value,
+        year: Number(document.getElementById('year').value),
+      }),
+    });
+    msg.textContent = 'Tajuk acara berjaya dikemaskini.';
+    msg.style.color = 'green';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+});
+
+async function transition(action) {
+  if (!confirm(LIFECYCLE_CONFIRM_TEXT[action])) return;
+  const msg = document.getElementById('lifecycleMsg');
+  try {
+    await fetchJSON(`/api/lifecycle/${LIFECYCLE_ENDPOINTS[action]}`, { method: 'POST' });
+    msg.textContent = 'Berjaya.';
+    msg.style.color = 'green';
+    loadLifecycle();
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  }
+}
+
+requireLogin(['admin']).then((user) => { if (user) { loadTitle(); loadLifecycle(); } });
+</script>
+</body>
+</html>
