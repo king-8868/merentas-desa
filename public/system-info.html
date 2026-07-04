@@ -36,6 +36,7 @@
 <script>
 async function load() {
   const info = await fetchJSON('/api/system-info');
+  RESTORE_MODE_ENABLED = info.restoreModeEnabled;
   const rows = [
     ['Nama Sistem', escapeHTML(info.systemName)],
     ['Acara Semasa', info.currentEvent.map(escapeHTML).join('<br>')],
@@ -49,11 +50,18 @@ async function load() {
       : 'Tiada alamat rangkaian dikesan'],
     ['Pengguna Log Masuk Semasa', `${escapeHTML(info.currentUser.username)} (${escapeHTML(info.currentUser.role)}${info.currentUser.schoolCode ? ' &middot; ' + escapeHTML(info.currentUser.schoolCode) : ''})`],
     ['Sandaran Terakhir', info.lastBackupAt ? new Date(info.lastBackupAt).toLocaleString('ms-MY') : 'Belum ada sandaran'],
+    ['Mod Arkib', `<span style="color:var(--teal)">baca sahaja</span>`],
+    ['Sistem Sandaran', `<span style="color:var(--teal)">diaktifkan</span>`],
+    ['Mod Pemulihan', info.restoreModeEnabled
+      ? `<span style="color:var(--red)">diaktifkan</span>`
+      : `<span style="color:var(--text-secondary)">dilumpuhkan (lalai)</span>`],
   ];
   document.querySelector('#infoTable tbody').innerHTML = rows
     .map(([label, value]) => `<tr><th style="text-align:left;width:40%;">${label}</th><td>${value}</td></tr>`)
     .join('');
 }
+
+let RESTORE_MODE_ENABLED = false;
 
 async function loadBackups() {
   const backups = await fetchJSON('/api/backups');
@@ -62,23 +70,24 @@ async function loadBackups() {
     tbody.innerHTML = '<tr><td colspan="4" class="empty">Tiada sandaran lagi.</td></tr>';
     return;
   }
+  const restoreDisabledAttr = RESTORE_MODE_ENABLED ? '' : 'disabled title="Mod pemulihan dilumpuhkan - mulakan semula pelayan dengan RESTORE_MODE=enabled"';
   tbody.innerHTML = backups.map((b) => `
     <tr>
       <td>${new Date(b.timestamp).toLocaleString('ms-MY')}</td>
       <td>${escapeHTML(b.reason)}</td>
       <td>${b.files.length}</td>
-      <td><button type="button" onclick="restore(${b.timestamp})">Pulihkan</button></td>
+      <td><button type="button" ${restoreDisabledAttr} onclick="restore(${b.timestamp})">Pulihkan</button></td>
     </tr>
   `).join('');
 }
 
 async function restore(timestamp) {
-  if (!confirm('Adakah anda pasti mahu memulihkan sandaran ini? Data semasa akan ditimpa (satu sandaran keselamatan tambahan akan diambil dahulu).')) return;
+  if (!confirm(`Adakah anda pasti mahu memulihkan sandaran ini?\n\nData ACARA AKTIF (SEMASA) akan ditimpa sepenuhnya. Satu sandaran keselamatan tambahan akan diambil secara automatik sebelum ini berlaku, supaya pemulihan ini sendiri boleh dibatalkan jika tersilap.`)) return;
   try {
     await fetchJSON(`/api/backups/${timestamp}/restore`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ confirm: true }),
+      body: JSON.stringify({ confirm: true, scope: 'active', timestamp }),
     });
     alert('Pemulihan berjaya.');
     load();
@@ -88,7 +97,11 @@ async function restore(timestamp) {
   }
 }
 
-requireLogin(['admin']).then((user) => { if (user) { load(); loadBackups(); } });
+requireLogin(['admin']).then(async (user) => {
+  if (!user) return;
+  await load(); // sets RESTORE_MODE_ENABLED, read by loadBackups() below
+  loadBackups();
+});
 </script>
 </body>
 </html>

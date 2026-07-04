@@ -6,7 +6,7 @@ const { Router } = require('./lib/router');
 const { sendJSON, parseBody, parseRawBody, serveStatic } = require('./lib/http-helpers');
 const initData = require('./lib/init-data');
 const { checkIntegrity } = require('./lib/integrity');
-const { startBackupScheduler, getLastBackup } = require('./lib/backup');
+const { startBackupScheduler, getLastBackup, isRestoreModeEnabled } = require('./lib/backup');
 
 const PORT = process.env.PORT || 3000;
 const BACKUP_INTERVAL_MINUTES = Number(process.env.BACKUP_INTERVAL_MINUTES) || 15;
@@ -100,4 +100,15 @@ server.listen(PORT, () => {
   }
   console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to /backup`);
   console.log(`  - Last backup: ${lastBackup ? new Date(lastBackup.timestamp).toLocaleString() : '(none yet - one is being taken now)'}`);
+
+  // 1.4 safety patch: make the active data-safety boundaries visible at a
+  // glance every time the server starts, not just discoverable by reading
+  // code - Archive is always read-only (nothing ever writes back into
+  // data/archive/ after the moment it's created), Backup is always on, and
+  // Restore is off unless explicitly turned on for this run.
+  console.log(`\nData boundaries:`);
+  console.log(`  - Active Event:  ${CURRENT_EVENT_LINE1}`);
+  console.log(`  - Archive Mode:  read-only enabled`);
+  console.log(`  - Backup system: enabled`);
+  console.log(`  - Restore mode:  ${isRestoreModeEnabled() ? 'ENABLED (RESTORE_MODE=enabled)' : 'disabled by default'}`);
 });
