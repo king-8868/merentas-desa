@@ -38,6 +38,8 @@ Since all state lives in `data/*.json`, a full backup is just copying that folde
 cp -r data/ data-backup-$(date +%Y%m%d)/
 ```
 
+(macOS/Linux syntax. On Windows, see `docs/Windows Deployment Guide.md` section 4 for the `xcopy`/`Copy-Item` equivalents — this command as written won't run in Command Prompt or PowerShell.)
+
 Do this **before** race day starts, and again after Archive at the end of the day. `data/` is intentionally excluded from git (it's real people's data, not code — see `.gitignore`), so git history is not a backup of this data; only a manual copy or the Archive mechanism above is.
 
 ## What is NOT automatically backed up

@@ -72,14 +72,18 @@ merentas-desa/
     └── app.js               # shared helper functions (incl. login/role/nav-visibility logic)
 ```
 
-See `docs/Architecture.md` for how these pieces fit together, and the
+See `docs/Architecture.md` for how these pieces fit together, the
 role-specific guides (`docs/Admin Guide.md`, `docs/School Manager Guide.md`,
-`docs/Race Official Guide.md`, `docs/User Guide.md`) for day-to-day usage.
+`docs/Race Official Guide.md`, `docs/User Guide.md`) for day-to-day usage,
+and `docs/Windows Deployment Guide.md` if you're deploying on Windows rather
+than macOS/Linux (the commands below are bash/zsh syntax).
 
 ## Installation
 
-**Prerequisites:** Node.js v14 or later. That's it — zero npm dependencies,
-so there is no `npm install` step.
+**Prerequisites:** Node.js 18 LTS or later recommended (technical minimum:
+14.14, since `lib/backup.js` uses `fs.promises.rm()` which was introduced in
+that release). That's it — zero npm dependencies, so there is no
+`npm install` step.
 
 ```bash
 git clone <this repository>
