@@ -1,6 +1,6 @@
 const store = require('../lib/store');
 const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE } = require('../lib/config');
-const { generateBib } = require('../lib/bib');
+const { pickBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
 const { deriveState } = require('./race');
 const { getSessionUser, requireAuth } = require('../lib/auth');
@@ -53,20 +53,21 @@ function register(router) {
       return sendJSON(res, 400, { error: 'Invalid categoryCode' });
     }
 
-    // generateBib (which touches counters.json, itself event-scoped) and the
-    // students.json write both happen inside the same lifecycle-gated
-    // section - otherwise a bib could be burned against the wrong event's
-    // counter if the event is archived/cleared between the two.
+    // pickBib() and the students.json insert happen inside the very same
+    // store.update(STUDENTS_FILE, ...) call - not two separate steps - so two
+    // concurrent registrations for the same school+category can never scan
+    // the same gap and both grab it (lib/store.js serializes every mutator
+    // call against one file). The whole thing is also wrapped in the
+    // lifecycle-gated section so it can't land against the wrong event if
+    // archived/cleared mid-request.
     let writeOutcome;
     try {
       writeOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
-        const bib = await generateBib(schoolCode, categoryCode);
-        const student = { bib, name: String(name).trim(), schoolCode, categoryCode };
-        await store.update(STUDENTS_FILE, [], (students) => ({
-          data: [...students, student],
-          result: student,
-        }));
-        return student;
+        return store.update(STUDENTS_FILE, [], (students) => {
+          const bib = pickBib(students, schoolCode, categoryCode);
+          const student = { bib, name: String(name).trim(), schoolCode, categoryCode };
+          return { data: [...students, student], result: student };
+        });
       });
     } catch (err) {
       return sendJSON(res, 400, { error: err.message });
@@ -148,13 +149,11 @@ function register(router) {
       // `errors` instead of silently landing in a new event's fresh data.
       try {
         const rowOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
-          const bib = await generateBib(schoolCode, categoryCode);
-          const student = { bib, name, schoolCode, categoryCode };
-          await store.update(STUDENTS_FILE, [], (students) => ({
-            data: [...students, student],
-            result: student,
-          }));
-          return student;
+          return store.update(STUDENTS_FILE, [], (students) => {
+            const bib = pickBib(students, schoolCode, categoryCode);
+            const student = { bib, name, schoolCode, categoryCode };
+            return { data: [...students, student], result: student };
+          });
         });
         if (!rowOutcome.ok) {
           errors.push({ row: rowNum, reason: rowOutcome.error });
