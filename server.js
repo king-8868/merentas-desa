@@ -1,7 +1,7 @@
 const http = require('http');
 const os = require('os');
 
-const { PUBLIC_DIR, SYSTEM_VERSION, CURRENT_EVENT_LINE1 } = require('./lib/config');
+const { PUBLIC_DIR, SYSTEM_VERSION, CURRENT_EVENT_LINE1, BACKUP_DIR } = require('./lib/config');
 const { Router } = require('./lib/router');
 const { sendJSON, parseBody, parseRawBody, serveStatic } = require('./lib/http-helpers');
 const initData = require('./lib/init-data');
@@ -98,7 +98,7 @@ server.listen(PORT, () => {
   } else {
     console.log(`  - Network: no LAN address detected (check WiFi/network connection)`);
   }
-  console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to /backup`);
+  console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to ${BACKUP_DIR}`);
   console.log(`  - Last backup: ${lastBackup ? new Date(lastBackup.timestamp).toLocaleString() : '(none yet - one is being taken now)'}`);
 
   // 1.4 safety patch: make the active data-safety boundaries visible at a
