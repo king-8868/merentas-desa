@@ -17,8 +17,8 @@
 </header>
 <main>
   <div class="card">
-    <h2 class="section-title">Cipta Akaun Pegawai Perlumbaan</h2>
-    <p class="hint">Sokongan berbilang akaun Pegawai Perlumbaan (contoh: satu akaun setiap stesen) tanpa perubahan kod.</p>
+    <h2 class="section-title">Cipta Akaun Pentadbir / Pegawai Perlumbaan</h2>
+    <p class="hint">Sokongan berbilang akaun setiap peranan (contoh: satu Pegawai Perlumbaan setiap stesen) tanpa perubahan kod. Akaun Pengurus Sekolah tidak dicipta di sini - ia dicipta serentak semasa "Tambah Sekolah".</p>
     <form id="createForm">
       <div class="form-row">
         <div>
@@ -28,6 +28,13 @@
         <div>
           <label>Kata Laluan Sementara</label>
           <input type="text" id="newPassword" minlength="6" required>
+        </div>
+        <div>
+          <label>Peranan</label>
+          <select id="newRole" required>
+            <option value="official">Pegawai Perlumbaan</option>
+            <option value="admin">Admin</option>
+          </select>
         </div>
       </div>
       <button type="submit">Cipta Akaun</button>
@@ -128,14 +135,15 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('newUsername').value;
   const password = document.getElementById('newPassword').value;
+  const role = document.getElementById('newRole').value;
   const msg = document.getElementById('createMsg');
   try {
     await fetchJSON('/api/auth/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password, role: 'official' }),
+      body: JSON.stringify({ username, password, role }),
     });
-    msg.textContent = 'Akaun Pegawai Perlumbaan berjaya dicipta.';
+    msg.textContent = `Akaun ${ROLE_DISPLAY[role] || role} berjaya dicipta.`;
     msg.style.color = 'green';
     e.target.reset();
     load();

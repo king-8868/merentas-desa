@@ -18,6 +18,7 @@
 <main>
   <div class="card">
     <h2 class="section-title">Tambah Sekolah Baharu</h2>
+    <p class="hint">Akaun Pengurus Sekolah untuk sekolah ini akan dicipta serentak.</p>
     <form id="addForm">
       <div class="form-row">
         <div>
@@ -27,6 +28,16 @@
         <div>
           <label>Nama Sekolah</label>
           <input type="text" id="name" placeholder="Contoh: SJKC PEI HWA" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Nama Pengguna (Pengurus Sekolah)</label>
+          <input type="text" id="username" placeholder="Contoh: PH" required>
+        </div>
+        <div>
+          <label>Kata Laluan Awal</label>
+          <input type="text" id="password" minlength="6" required>
         </div>
       </div>
       <button type="submit">Tambah Sekolah</button>
@@ -106,20 +117,32 @@ async function saveEdit(code) {
   }
 }
 
+// Username defaults to the school code, but the admin can override it before
+// submitting - stops tracking the code once they've edited it by hand.
+let usernameTouched = false;
+document.getElementById('username').addEventListener('input', () => { usernameTouched = true; });
+document.getElementById('code').addEventListener('input', (e) => {
+  if (usernameTouched) return;
+  document.getElementById('username').value = e.target.value.trim().toUpperCase();
+});
+
 document.getElementById('addForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const code = document.getElementById('code').value;
   const name = document.getElementById('name').value;
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
   const msg = document.getElementById('msg');
   try {
     await fetchJSON('/api/schools', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code, name }),
+      body: JSON.stringify({ code, name, username, password }),
     });
-    msg.textContent = 'Sekolah berjaya ditambah.';
+    msg.textContent = `Sekolah berjaya ditambah. Akaun Pengurus Sekolah "${username}" telah dicipta.`;
     msg.style.color = 'green';
     e.target.reset();
+    usernameTouched = false;
     load();
   } catch (err) {
     msg.textContent = err.message;

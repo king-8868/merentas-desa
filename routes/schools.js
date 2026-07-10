@@ -1,6 +1,6 @@
 const store = require('../lib/store');
-const { SCHOOLS_FILE } = require('../lib/config');
-const { requireAuth } = require('../lib/auth');
+const { SCHOOLS_FILE, USERS_FILE } = require('../lib/config');
+const { requireAuth, generateSalt, hashPassword } = require('../lib/auth');
 
 const CODE_PATTERN = /^[A-Z0-9]{1,6}$/;
 
@@ -10,17 +10,36 @@ function register(router) {
     sendJSON(res, 200, store.readJSON(SCHOOLS_FILE, []));
   });
 
+  // Creates the School and its paired Pengurus Sekolah (school-role) account
+  // together, in one action. The admin only supplies username + initial
+  // password - role is always 'school' and schoolCode is always this
+  // school's code, never chosen. This is now the only way a school-role
+  // account can be created (POST /api/auth/users rejects role: 'school').
   router.add('POST', '/api/schools', async (req, res, { sendJSON, parseBody }) => {
-    const user = requireAuth(req, res, sendJSON, 'school.create');
-    if (!user) return;
+    const admin = requireAuth(req, res, sendJSON, 'school.create');
+    if (!admin) return;
     const body = await parseBody(req);
-    const { code, name } = body;
-    if (!code || !name) {
-      return sendJSON(res, 400, { error: 'code and name are required' });
+    const { code, name, username, password } = body;
+    if (!code || !name || !username || !password) {
+      return sendJSON(res, 400, { error: 'code, name, username and password are required' });
     }
     const normalizedCode = String(code).trim().toUpperCase();
     if (!CODE_PATTERN.test(normalizedCode)) {
       return sendJSON(res, 400, { error: 'code must be 1-6 letters/digits (e.g. TK)' });
+    }
+    const normalizedUsername = String(username).trim();
+    if (!normalizedUsername) {
+      return sendJSON(res, 400, { error: 'username is required' });
+    }
+    if (String(password).length < 6) {
+      return sendJSON(res, 400, { error: 'password must be at least 6 characters' });
+    }
+
+    // Checked up front, before either file is written, so a duplicate
+    // username never leaves an orphaned School with no paired account.
+    const existingUsers = store.readJSON(USERS_FILE, []);
+    if (existingUsers.find((u) => u.username.toLowerCase() === normalizedUsername.toLowerCase())) {
+      return sendJSON(res, 400, { error: `Username ${normalizedUsername} already exists` });
     }
 
     try {
@@ -31,7 +50,40 @@ function register(router) {
         const newSchool = { code: normalizedCode, name: String(name).trim() };
         return { data: [...schools, newSchool], result: newSchool };
       });
-      sendJSON(res, 201, school);
+
+      const newUser = await store.update(USERS_FILE, [], (users) => {
+        if (users.find((u) => u.username.toLowerCase() === normalizedUsername.toLowerCase())) {
+          throw new Error(`Username ${normalizedUsername} already exists`);
+        }
+        // Defensive only - the school-code check above already guarantees
+        // normalizedCode is new, so a manager for it can never already
+        // exist. Kept so this endpoint can never double-create one.
+        if (users.find((u) => u.role === 'school' && u.schoolCode === normalizedCode)) {
+          return { data: users, result: null };
+        }
+        const salt = generateSalt();
+        const created = {
+          username: normalizedUsername,
+          passwordHash: hashPassword(String(password), salt),
+          salt,
+          role: 'school',
+          schoolCode: normalizedCode,
+          mustChangePassword: true,
+        };
+        return { data: [...users, created], result: created };
+      });
+
+      sendJSON(res, 201, {
+        school,
+        user: newUser
+          ? {
+              username: newUser.username,
+              role: newUser.role,
+              schoolCode: newUser.schoolCode,
+              mustChangePassword: newUser.mustChangePassword,
+            }
+          : null,
+      });
     } catch (err) {
       sendJSON(res, 400, { error: err.message });
     }

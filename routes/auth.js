@@ -129,20 +129,24 @@ function register(router) {
 
   // Admin-only. Confirms the user data model already supports more than one
   // account per role (e.g. a second Race Official for a larger event, or an
-  // extra School Manager) without any redesign - Version 1.1 ships with one
-  // default official account, but nothing in the auth logic assumes that's
-  // the only one.
+  // extra Admin) without any redesign - Version 1.1 ships with one default
+  // official account, but nothing in the auth logic assumes that's the only
+  // one.
+  //
+  // role: 'school' is deliberately rejected here - a School Manager account
+  // must always be paired with a School and its schoolCode is never a free
+  // choice, so it can only be created via POST /api/schools (routes/schools.js).
   router.add('POST', '/api/auth/users', async (req, res, { sendJSON, parseBody }) => {
     const sessionUser = requireAuth(req, res, sendJSON, 'user.create');
     if (!sessionUser) return;
 
     const body = await parseBody(req);
-    const { username, password, role, schoolCode } = body;
+    const { username, password, role } = body;
     if (!username || !password || !role) {
       return sendJSON(res, 400, { error: 'username, password and role are required' });
     }
-    if (!['admin', 'school', 'official'].includes(role)) {
-      return sendJSON(res, 400, { error: 'Invalid role' });
+    if (!['admin', 'official'].includes(role)) {
+      return sendJSON(res, 400, { error: 'Invalid role. School Manager accounts can only be created via Tambah Sekolah.' });
     }
     if (String(password).length < 6) {
       return sendJSON(res, 400, { error: 'Password must be at least 6 characters' });
@@ -159,7 +163,7 @@ function register(router) {
       passwordHash: hashPassword(password, salt),
       salt,
       role,
-      schoolCode: role === 'school' ? schoolCode || null : null,
+      schoolCode: null,
       mustChangePassword: true,
     };
     await store.update(USERS_FILE, [], (allUsers) => ({ data: [...allUsers, newUser], result: null }));
