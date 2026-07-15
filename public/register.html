@@ -83,8 +83,18 @@ async function loadOptions() {
   document.getElementById('category').innerHTML =
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 
-  document.getElementById('filterSchool').innerHTML +=
-    SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
+  // GET /api/students already scopes a School Manager to their own school's
+  // roster only (routes/students.js), so a "which school" picker here would
+  // just be dead weight - either it's a no-op (own school) or it silently
+  // returns an empty table (any other school). Hide it entirely for that
+  // role instead of populating it with schools they can never actually see.
+  const filterSchoolEl = document.getElementById('filterSchool');
+  if (CURRENT_USER && CURRENT_USER.role === 'school') {
+    filterSchoolEl.style.display = 'none';
+  } else {
+    filterSchoolEl.innerHTML +=
+      SCHOOLS.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
+  }
   document.getElementById('filterCategory').innerHTML +=
     CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 }

@@ -26,6 +26,35 @@ function register(router) {
     sendJSON(res, 200, students);
   });
 
+  // Counts only (no names) - unlike GET /api/students above, this is NEVER
+  // scoped to the caller's own school. A School Manager needs the true
+  // event-wide totals for the "Ringkasan Acara" / "Sekolah Yang Menyertai" /
+  // "Kategori" dashboard (public/index.html), and a per-school participant
+  // *count* is not the kind of private data that scoping exists to protect
+  // (only the roster of names is). Keep this endpoint aggregate-only -
+  // if it ever needs to return individual students, scope it like
+  // GET /api/students does.
+  router.add('GET', '/api/students/summary', async (req, res, { sendJSON }) => {
+    const user = requireAuth(req, res, sendJSON, 'dashboard.view');
+    if (!user) return;
+    const students = store.readJSON(STUDENTS_FILE, []);
+    const schools = store.readJSON(SCHOOLS_FILE, []);
+    const perSchool = schools.map((sch) => ({
+      schoolCode: sch.code,
+      count: students.filter((s) => s.schoolCode === sch.code).length,
+    }));
+    const perCategory = CATEGORIES.map((cat) => ({
+      categoryCode: cat.code,
+      count: students.filter((s) => s.categoryCode === cat.code).length,
+    }));
+    sendJSON(res, 200, {
+      totalStudents: students.length,
+      totalSchools: schools.length,
+      perSchool,
+      perCategory,
+    });
+  });
+
   // Admin can register for any school. A School Manager can only register
   // for their own school - schoolCode is forced server-side regardless of
   // what the request body says, so a tampered request can't register into

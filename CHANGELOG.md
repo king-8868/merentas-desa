@@ -3,6 +3,42 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.6.1] - Dashboard RBAC Improvements
+
+Fixes two related School Manager-role bugs on the dashboard/registration
+pages, both traced to the same root cause.
+
+- **Bug**: `GET /api/students` deliberately scopes to the caller's own
+  school when the caller is a School Manager (protects other schools'
+  participant names/bibs - see 1.1-D). `public/index.html` (the post-login
+  home page - "Ringkasan Acara" / "Sekolah Yang Menyertai" / "Kategori")
+  was computing its event-wide counts from that same scoped response, so a
+  School Manager only ever saw their own school's numbers instead of the
+  true totals across all participating schools.
+- **Fix**: added `GET /api/students/summary` (`routes/students.js`) - an
+  aggregate-only endpoint (total participants, per-school counts,
+  per-category counts, no names) that is **never** scoped by school, since
+  counts alone aren't the private data the scoping exists to protect. Wired
+  up via a new `dashboard.view` permission (`admin`, `school`, `official`)
+  in the permission matrix (`lib/config.js` seed + live
+  `data/role_permissions.json`). `public/index.html` now reads its summary
+  numbers from this endpoint instead of the scoped `/api/students`.
+- **UX fix**: `public/register.html`'s "Senarai Peserta Berdaftar" school
+  filter dropdown listed every school for a School Manager too, even though
+  their result set is already locked to their own school server-side -
+  picking any other school just silently produced an empty table. The
+  dropdown is now hidden entirely for the `school` role (unchanged for
+  `admin` / `official`), matching the pattern already used for the
+  registration form's own school picker.
+- Verified with an isolated test server (scratch `DATA_DIR`/`BACKUP_DIR`,
+  synthetic multi-school student data, temporary test accounts for all
+  three roles): School Manager sees correct event-wide totals via
+  `/api/students/summary` while `/api/students` stays correctly scoped to
+  their own school; Admin/Official behavior unchanged; anonymous requests
+  to the new endpoint are rejected with 401.
+- Bumped `SYSTEM_VERSION` (`lib/config.js`) from the long-stale `1.4` to
+  `1.6.1` to match this tag.
+
 ## Current System Capability Summary (as of 1.2-RC)
 
 - **Registration**: per-school, per-category, auto-generated permanent bib

@@ -42,10 +42,17 @@ async function load() {
   // School Manager can still view this dashboard, just without that one
   // stat, rather than the whole page failing to load. null (not []) marks
   // "not visible to this role" so it's hidden, not shown as a misleading 0.
-  const [schools, categories, students, results, checkins] = await Promise.all([
+  //
+  // /api/students/summary (not /api/students) is used for the counts below:
+  // /api/students itself is scoped to "own school only" for a School
+  // Manager (protects other schools' participant names), which used to
+  // make this whole dashboard collapse to that one school's numbers.
+  // /summary is aggregate-only (no names), so every role sees the true
+  // event-wide totals.
+  const [schools, categories, summary, results, checkins] = await Promise.all([
     fetchJSON('/api/schools'),
     fetchJSON('/api/categories'),
-    fetchJSON('/api/students'),
+    fetchJSON('/api/students/summary'),
     fetchJSON('/api/results'),
     fetchJSON('/api/checkins').catch(() => null),
   ]);
@@ -55,19 +62,21 @@ async function load() {
     : '';
   document.getElementById('summary').innerHTML = `
     <div class="stat-box"><h3>${schools.length}</h3><p>Sekolah</p></div>
-    <div class="stat-box" style="background:#457b9d"><h3>${students.length}</h3><p>Peserta Berdaftar</p></div>
+    <div class="stat-box" style="background:#457b9d"><h3>${summary.totalStudents}</h3><p>Peserta Berdaftar</p></div>
     ${checkinsStat}
     <div class="stat-box" style="background:#2a9d8f"><h3>${results.length}</h3><p>Masa Direkod</p></div>
-    <div class="stat-box" style="background:#d62828"><h3>${students.length - results.length}</h3><p>Belum Selesai</p></div>
+    <div class="stat-box" style="background:#d62828"><h3>${summary.totalStudents - results.length}</h3><p>Belum Selesai</p></div>
   `;
 
   document.getElementById('schoolList').innerHTML = schools.map((sch) => {
-    const count = students.filter((s) => s.schoolCode === sch.code).length;
+    const entry = summary.perSchool.find((p) => p.schoolCode === sch.code);
+    const count = entry ? entry.count : 0;
     return `<tr><td>${schoolBadge(sch.code, schools)}</td><td>${escapeHTML(sch.name)}</td><td>${count}</td></tr>`;
   }).join('');
 
   document.getElementById('categoryList').innerHTML = categories.map((cat) => {
-    const count = students.filter((s) => s.categoryCode === cat.code).length;
+    const entry = summary.perCategory.find((p) => p.categoryCode === cat.code);
+    const count = entry ? entry.count : 0;
     return `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>${count}</td></tr>`;
   }).join('');
 }
