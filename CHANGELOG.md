@@ -3,6 +3,74 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## v1.6.2 Production Release
+
+Feature Freeze milestone - bundles the most recent 1.6.x work into one
+production-ready release. See `docs/RELEASE_NOTES_v1.6.2.md` for the full
+release notes (new features, bug fixes, known limitations, deployment and
+rollback instructions) and `docs/PROJECT_STATUS.md` for current project
+status/what's in scope during the freeze.
+
+Includes:
+- **Bib Allocation V3** (First Available Bib) - bib numbers are assigned by
+  scanning for the first available gap per school+category instead of a
+  separate `counters.json` sequence (see `[1.6.0]` below).
+- **School Manager auto-creation** - School Manager accounts are created
+  automatically as part of the school onboarding flow (see `[1.5.1]`).
+- **Dashboard Summary API** (`GET /api/students/summary`) - aggregate-only
+  (no participant names) totals endpoint, never scoped by school, so the
+  "Ringkasan Acara" dashboard shows true event-wide numbers to every role.
+- **Dashboard RBAC fix** - the dashboard previously computed its totals from
+  the school-scoped `/api/students`, so a School Manager only ever saw their
+  own school's numbers; now sourced from the Summary API above (see
+  `[1.6.1]`).
+- **Permission Auto Merge** - server startup now merges any permission key
+  present in code but missing from an already-existing `role_permissions.json`
+  (e.g. on Railway's persistent Volume), without ever touching a key that's
+  already there - so a new permission never again requires a manual edit to
+  a live environment's data file (see `[1.6.2]`).
+- **Dashboard Loading resilience** - `public/index.html` uses
+  `Promise.allSettled` instead of `Promise.all`; one failing request now
+  degrades only its own section (with a visible, diagnosable error) instead
+  of leaving the entire dashboard stuck on "Loading..." (see `[1.6.2]`).
+- **Railway Production Ready** - deployment compatibility (`DATA_DIR`/
+  `BACKUP_DIR` env overrides for ephemeral containers + mounted Volumes),
+  graceful `SIGTERM` shutdown, and this release's permission auto-merge all
+  verified against an isolated copy of production-shaped data before
+  shipping.
+
+## [1.6.2] - Permission Auto Merge & Dashboard Loading Resilience
+
+Hotfix for a production incident: `dashboard.view` (added in 1.6.1) 403'd on
+any environment whose `role_permissions.json` already existed before that
+release (Railway's persistent Volume in particular), because the seed
+function only writes that file when it's completely absent. That collapsed
+the entire dashboard to a stuck "Loading..." for every role, since the one
+failing request was inside an un-caught `Promise.all()`.
+
+- **Permission Auto Merge** (`lib/init-data.js`, `server.js`): on every
+  startup, after the existing first-run seed step, a new
+  `mergeRolePermissions()` diffs the on-disk `role_permissions.json` against
+  the code's default permission map and adds only the keys that are
+  completely missing, via the same atomic `store.update()` queue every other
+  write in the app uses. Existing keys - including any hand-customized role
+  list - are never touched, and nothing is written at all if there's nothing
+  missing. `server.js`'s startup sequence now awaits this before
+  `server.listen()`, so no request can land before the merge write lands.
+  Logs exactly which key(s) were added, e.g. `auto-added missing permission
+  key(s): dashboard.view`.
+- **Dashboard Loading resilience** (`public/index.html`): `load()` switched
+  from `Promise.all()` to `Promise.allSettled()`. A failing request now only
+  blanks its own section - shown as an explicit on-page error plus a
+  `console.error()` with the real error message - while every other section
+  that did load renders normally. Success-path UI is unchanged.
+- Verified in an isolated copy of production-shaped data: missing-key
+  auto-add (with a hand-customized permission left untouched), no-op on
+  repeat startup (byte-identical file, no log spam), admin/school/official
+  all get `200` from `/api/students/summary`, anonymous gets `401`, and a
+  regression pass across schools/results/rankings/race-status/checkins
+  showed no behavior change.
+
 ## [1.6.1] - Dashboard RBAC Improvements
 
 Fixes two related School Manager-role bugs on the dashboard/registration
