@@ -49,36 +49,78 @@ async function load() {
   // make this whole dashboard collapse to that one school's numbers.
   // /summary is aggregate-only (no names), so every role sees the true
   // event-wide totals.
-  const [schools, categories, summary, results, checkins] = await Promise.all([
+  //
+  // v1.6.2 hotfix: this used to be a single Promise.all(), so ANY one
+  // request failing (e.g. /api/students/summary 403 on an environment whose
+  // role_permissions.json hadn't picked up the 'dashboard.view' key yet -
+  // see CHANGELOG) rejected the whole thing and left every section stuck on
+  // its initial "Loading..." placeholder forever, with nothing but an
+  // unhandled promise rejection in the console to explain why. Promise.
+  // allSettled() means one failing request degrades only the section that
+  // depends on it - the rest of the dashboard still renders - and the
+  // failure is shown on-page (not just logged) so it's diagnosable without
+  // opening devtools.
+  const [schoolsR, categoriesR, summaryR, resultsR, checkinsR] = await Promise.allSettled([
     fetchJSON('/api/schools'),
     fetchJSON('/api/categories'),
     fetchJSON('/api/students/summary'),
     fetchJSON('/api/results'),
-    fetchJSON('/api/checkins').catch(() => null),
+    fetchJSON('/api/checkins'),
   ]);
+
+  const schools = schoolsR.status === 'fulfilled' ? schoolsR.value : [];
+  const categories = categoriesR.status === 'fulfilled' ? categoriesR.value : [];
+  const results = resultsR.status === 'fulfilled' ? resultsR.value : [];
+  // checkins: null covers both "role not allowed to see this" (pre-existing
+  // convention) and "request failed" - either way the stat is just omitted.
+  const checkins = checkinsR.status === 'fulfilled' ? checkinsR.value : null;
+
+  [schoolsR, categoriesR, resultsR].forEach((r) => {
+    if (r.status === 'rejected') console.error('Dashboard: a request failed:', r.reason);
+  });
 
   const checkinsStat = checkins
     ? `<div class="stat-box" style="background:#8ab17d"><h3>${checkins.length}</h3><p>Sudah Daftar Masuk</p></div>`
     : '';
-  document.getElementById('summary').innerHTML = `
-    <div class="stat-box"><h3>${schools.length}</h3><p>Sekolah</p></div>
-    <div class="stat-box" style="background:#457b9d"><h3>${summary.totalStudents}</h3><p>Peserta Berdaftar</p></div>
-    ${checkinsStat}
-    <div class="stat-box" style="background:#2a9d8f"><h3>${results.length}</h3><p>Masa Direkod</p></div>
-    <div class="stat-box" style="background:#d62828"><h3>${summary.totalStudents - results.length}</h3><p>Belum Selesai</p></div>
-  `;
 
-  document.getElementById('schoolList').innerHTML = schools.map((sch) => {
-    const entry = summary.perSchool.find((p) => p.schoolCode === sch.code);
-    const count = entry ? entry.count : 0;
-    return `<tr><td>${schoolBadge(sch.code, schools)}</td><td>${escapeHTML(sch.name)}</td><td>${count}</td></tr>`;
-  }).join('');
+  if (summaryR.status === 'fulfilled') {
+    const summary = summaryR.value;
+    document.getElementById('summary').innerHTML = `
+      <div class="stat-box"><h3>${schools.length}</h3><p>Sekolah</p></div>
+      <div class="stat-box" style="background:#457b9d"><h3>${summary.totalStudents}</h3><p>Peserta Berdaftar</p></div>
+      ${checkinsStat}
+      <div class="stat-box" style="background:#2a9d8f"><h3>${results.length}</h3><p>Masa Direkod</p></div>
+      <div class="stat-box" style="background:#d62828"><h3>${summary.totalStudents - results.length}</h3><p>Belum Selesai</p></div>
+    `;
 
-  document.getElementById('categoryList').innerHTML = categories.map((cat) => {
-    const entry = summary.perCategory.find((p) => p.categoryCode === cat.code);
-    const count = entry ? entry.count : 0;
-    return `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>${count}</td></tr>`;
-  }).join('');
+    document.getElementById('schoolList').innerHTML = schools.map((sch) => {
+      const entry = summary.perSchool.find((p) => p.schoolCode === sch.code);
+      const count = entry ? entry.count : 0;
+      return `<tr><td>${schoolBadge(sch.code, schools)}</td><td>${escapeHTML(sch.name)}</td><td>${count}</td></tr>`;
+    }).join('');
+
+    document.getElementById('categoryList').innerHTML = categories.map((cat) => {
+      const entry = summary.perCategory.find((p) => p.categoryCode === cat.code);
+      const count = entry ? entry.count : 0;
+      return `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>${count}</td></tr>`;
+    }).join('');
+    return;
+  }
+
+  // Summary failed: show the real error on-page (not a silent blank/stuck
+  // "Loading...") and still render the school/category names we do have
+  // from their own (independent) requests, just without participant counts.
+  console.error('Dashboard: /api/students/summary failed:', summaryR.reason);
+  document.getElementById('summary').innerHTML =
+    `<p class="empty" style="color:#d62828">Ralat memuatkan ringkasan: ${escapeHTML(summaryR.reason.message)}</p>`;
+
+  document.getElementById('schoolList').innerHTML = schools.map((sch) =>
+    `<tr><td>${schoolBadge(sch.code, schools)}</td><td>${escapeHTML(sch.name)}</td><td>-</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="empty">Tiada data.</td></tr>';
+
+  document.getElementById('categoryList').innerHTML = categories.map((cat) =>
+    `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>-</td></tr>`
+  ).join('') || '<tr><td colspan="3" class="empty">Tiada data.</td></tr>';
 }
 requireLogin(['admin', 'school', 'official']).then((user) => { if (user) load(); });
 </script>

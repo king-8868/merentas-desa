@@ -81,37 +81,43 @@ function getLanAddresses() {
   return addresses;
 }
 
-initData();
-checkIntegrity();
-startBackupScheduler(BACKUP_INTERVAL_MINUTES);
+// initData() is async (it may need to merge missing permission keys into an
+// already-existing role_permissions.json via lib/store.js's atomic queue -
+// see lib/init-data.js) - awaited here so the server never starts accepting
+// requests before that merge write has actually landed on disk.
+(async () => {
+  await initData();
+  checkIntegrity();
+  startBackupScheduler(BACKUP_INTERVAL_MINUTES);
 
-server.listen(PORT, () => {
-  const lastBackup = getLastBackup();
-  console.log(`Merentas Desa system running:`);
-  console.log(`  - Version: ${SYSTEM_VERSION}`);
-  console.log(`  - Event:   ${CURRENT_EVENT_LINE1}`);
-  console.log(`  - Local:   http://localhost:${PORT}`);
-  const lanAddresses = getLanAddresses();
-  if (lanAddresses.length) {
-    lanAddresses.forEach((ip) => console.log(`  - Network: http://${ip}:${PORT}`));
-    console.log(`\nOther devices on the same WiFi (phone, tablet, another laptop) can open the "Network" address above in their browser.`);
-  } else {
-    console.log(`  - Network: no LAN address detected (check WiFi/network connection)`);
-  }
-  console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to ${BACKUP_DIR}`);
-  console.log(`  - Last backup: ${lastBackup ? new Date(lastBackup.timestamp).toLocaleString() : '(none yet - one is being taken now)'}`);
+  server.listen(PORT, () => {
+    const lastBackup = getLastBackup();
+    console.log(`Merentas Desa system running:`);
+    console.log(`  - Version: ${SYSTEM_VERSION}`);
+    console.log(`  - Event:   ${CURRENT_EVENT_LINE1}`);
+    console.log(`  - Local:   http://localhost:${PORT}`);
+    const lanAddresses = getLanAddresses();
+    if (lanAddresses.length) {
+      lanAddresses.forEach((ip) => console.log(`  - Network: http://${ip}:${PORT}`));
+      console.log(`\nOther devices on the same WiFi (phone, tablet, another laptop) can open the "Network" address above in their browser.`);
+    } else {
+      console.log(`  - Network: no LAN address detected (check WiFi/network connection)`);
+    }
+    console.log(`\nBackup: automatic snapshot every ${BACKUP_INTERVAL_MINUTES} minute(s) to ${BACKUP_DIR}`);
+    console.log(`  - Last backup: ${lastBackup ? new Date(lastBackup.timestamp).toLocaleString() : '(none yet - one is being taken now)'}`);
 
-  // 1.4 safety patch: make the active data-safety boundaries visible at a
-  // glance every time the server starts, not just discoverable by reading
-  // code - Archive is always read-only (nothing ever writes back into
-  // data/archive/ after the moment it's created), Backup is always on, and
-  // Restore is off unless explicitly turned on for this run.
-  console.log(`\nData boundaries:`);
-  console.log(`  - Active Event:  ${CURRENT_EVENT_LINE1}`);
-  console.log(`  - Archive Mode:  read-only enabled`);
-  console.log(`  - Backup system: enabled`);
-  console.log(`  - Restore mode:  ${isRestoreModeEnabled() ? 'ENABLED (RESTORE_MODE=enabled)' : 'disabled by default'}`);
-});
+    // 1.4 safety patch: make the active data-safety boundaries visible at a
+    // glance every time the server starts, not just discoverable by reading
+    // code - Archive is always read-only (nothing ever writes back into
+    // data/archive/ after the moment it's created), Backup is always on, and
+    // Restore is off unless explicitly turned on for this run.
+    console.log(`\nData boundaries:`);
+    console.log(`  - Active Event:  ${CURRENT_EVENT_LINE1}`);
+    console.log(`  - Archive Mode:  read-only enabled`);
+    console.log(`  - Backup system: enabled`);
+    console.log(`  - Restore mode:  ${isRestoreModeEnabled() ? 'ENABLED (RESTORE_MODE=enabled)' : 'disabled by default'}`);
+  });
+})();
 
 // Deployment compatibility: platforms like Railway send SIGTERM before
 // stopping/restarting a container (redeploys, scaling, etc.), not just
