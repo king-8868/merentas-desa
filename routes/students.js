@@ -1,5 +1,5 @@
 const store = require('../lib/store');
-const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE } = require('../lib/config');
+const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, resolveCategoryCode } = require('../lib/config');
 const { pickBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
 const { deriveState } = require('./race');
@@ -66,20 +66,26 @@ function register(router) {
     if (!eventGate.ok) return;
 
     const body = await parseBody(req);
-    const { name, categoryCode } = body;
+    const { name, tahap, gender } = body;
     let { schoolCode } = body;
     if (user.role === 'school') {
       schoolCode = user.schoolCode;
     }
-    if (!name || !schoolCode || !categoryCode) {
-      return sendJSON(res, 400, { error: 'name, schoolCode and categoryCode are required' });
+    if (!name || !schoolCode || !tahap || !gender) {
+      return sendJSON(res, 400, { error: 'name, schoolCode, tahap and gender are required' });
     }
     const schools = store.readJSON(SCHOOLS_FILE, []);
     if (!schools.find((s) => s.code === schoolCode)) {
       return sendJSON(res, 400, { error: 'Invalid schoolCode' });
     }
-    if (!CATEGORIES.find((c) => c.code === categoryCode)) {
-      return sendJSON(res, 400, { error: 'Invalid categoryCode' });
+    // v1.7: a teacher picks Tahap (1/2) + Jantina (Lelaki/Perempuan), never a
+    // category code directly - resolveCategoryCode() is the single place
+    // that turns that combination into the actual categoryCode (see
+    // lib/config.js). Kept as a 400, not a 500/silent default, so a garbled
+    // request never lands a student in the wrong category.
+    const categoryCode = resolveCategoryCode(tahap, gender);
+    if (!categoryCode) {
+      return sendJSON(res, 400, { error: 'Invalid tahap/gender combination' });
     }
 
     // pickBib() and the students.json insert happen inside the very same
@@ -118,14 +124,18 @@ function register(router) {
   });
 
   // CSV batch registration. Body is raw CSV text (not JSON), with a header
-  // row containing at least: name, schoolCode, categoryCode (case-insensitive,
-  // any column order). Best-effort: each row is validated and registered
-  // independently, so one bad row (typo'd school code, etc.) doesn't block
-  // the rest of a large import - the response reports exactly which rows
-  // succeeded (with their new bib) and which failed (with a reason), so the
-  // office can fix and re-import just the failed rows. A School Manager's
-  // rows are all forced to their own school - other schools' rows in the
-  // same file become errors, not silent corrections.
+  // row containing at least: name, schoolCode, tahap, gender (case-
+  // insensitive, any column order). v1.7: the CSV no longer takes a raw
+  // categoryCode column - a teacher filling this in should never need to
+  // know category codes, same reasoning as the single-registration form
+  // (see resolveCategoryCode() in lib/config.js). Best-effort: each row is
+  // validated and registered independently, so one bad row (typo'd school
+  // code, invalid tahap/gender, etc.) doesn't block the rest of a large
+  // import - the response reports exactly which rows succeeded (with their
+  // new bib) and which failed (with a reason), so the office can fix and
+  // re-import just the failed rows. A School Manager's rows are all forced
+  // to their own school - other schools' rows in the same file become
+  // errors, not silent corrections.
   router.add('POST', '/api/students/import', async (req, res, { sendJSON, parseRawBody }) => {
     const user = requireAuth(req, res, sendJSON, 'student.import');
     if (!user) return;
@@ -135,9 +145,9 @@ function register(router) {
     const text = await parseRawBody(req);
     const { headers, rows } = parseCSV(text);
 
-    if (!headers.includes('name') || !headers.includes('schoolcode') || !headers.includes('categorycode')) {
+    if (!headers.includes('name') || !headers.includes('schoolcode') || !headers.includes('tahap') || !headers.includes('gender')) {
       return sendJSON(res, 400, {
-        error: 'CSV mesti mempunyai lajur: name, schoolCode, categoryCode',
+        error: 'CSV mesti mempunyai lajur: name, schoolCode, tahap, gender',
       });
     }
 
@@ -150,7 +160,8 @@ function register(router) {
       const row = rows[i];
       const name = (row.name || '').trim();
       const schoolCode = (row.schoolcode || '').trim().toUpperCase();
-      const categoryCode = (row.categorycode || '').trim().toUpperCase();
+      const tahap = (row.tahap || '').trim();
+      const gender = (row.gender || '').trim();
 
       if (!name) {
         errors.push({ row: rowNum, reason: 'Nama diperlukan' });
@@ -167,8 +178,9 @@ function register(router) {
         errors.push({ row: rowNum, reason: `Kod sekolah tidak sah: "${schoolCode}"` });
         continue;
       }
-      if (!CATEGORIES.find((c) => c.code === categoryCode)) {
-        errors.push({ row: rowNum, reason: `Kod kategori tidak sah: "${categoryCode}"` });
+      const categoryCode = resolveCategoryCode(tahap, gender);
+      if (!categoryCode) {
+        errors.push({ row: rowNum, reason: `Tahap/gender tidak sah: tahap="${tahap}", gender="${gender}" (guna 1/2 dan L/P atau Lelaki/Perempuan)` });
         continue;
       }
 
@@ -226,10 +238,14 @@ function register(router) {
       const results = store.readJSON(RESULTS_FILE, []);
       const hasResult = results.some((r) => r.bib === bib);
       if (hasResult) {
+        // v1.7: race clocks are keyed by raceGroupCode, not categoryCode -
+        // resolve the student's category to its race group first (same
+        // pattern as routes/results.js's getCategoryStatus()).
+        const category = CATEGORIES.find((c) => c.code === student.categoryCode);
+        const raceGroupCode = category ? category.raceGroupCode : student.categoryCode;
         const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
-        const state = deriveState(raceStatus[student.categoryCode]);
+        const state = deriveState(raceStatus[raceGroupCode]);
         if (state === 'FINISHED') {
-          const category = CATEGORIES.find((c) => c.code === student.categoryCode);
           return sendJSON(res, 400, {
             error: `Perlumbaan kategori ${category ? category.label : student.categoryCode} telah tamat - peserta dengan keputusan tidak boleh dipadam`,
           });

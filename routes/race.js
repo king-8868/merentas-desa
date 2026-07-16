@@ -1,14 +1,19 @@
 const store = require('../lib/store');
-const { CATEGORIES, RACE_STATUS_FILE, STUDENTS_FILE, RESULTS_FILE } = require('../lib/config');
+const { CATEGORIES, RACE_GROUPS, RACE_STATUS_FILE, STUDENTS_FILE, RESULTS_FILE } = require('../lib/config');
 const { requireAuth } = require('../lib/auth');
 const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
 const { logAudit } = require('../lib/audit');
 
-// Race state machine per category:
+// Race state machine per RACE GROUP (not per category - see lib/config.js):
 //   NOT_STARTED -> RUNNING -> FINISHED
-// FINISHED is terminal within race control - once a category's race is
-// declared finished, its clock and results are locked. A full category
+// FINISHED is terminal within race control - once a race group's clock is
+// declared finished, its clock and results are locked. A full race group
 // do-over is an Event Archive / Create New Event concern (out of scope here).
+//
+// v1.7: this used to be keyed by categoryCode (1 clock per category). It's
+// now keyed by raceGroupCode - Tahap 1 Lelaki (category C) and Tahap 1
+// Perempuan (category D) share the single 'T1' race group/clock, while still
+// ranking completely separately (routes/rankings.js groups by categoryCode).
 function deriveState(entry) {
   if (!entry || !entry.startTime) return 'NOT_STARTED';
   if (entry.finishedAt) return 'FINISHED';
@@ -16,14 +21,14 @@ function deriveState(entry) {
 }
 
 function buildStatus(raceStatus) {
-  return CATEGORIES.map((cat) => {
-    const entry = raceStatus[cat.code] || {};
+  return RACE_GROUPS.map((group) => {
+    const entry = raceStatus[group.code] || {};
     const state = deriveState(entry);
     const started = state === 'RUNNING' || state === 'FINISHED'; // kept for backward compatibility
     const clockEnd = state === 'FINISHED' ? entry.finishedAt : Date.now();
     return {
-      code: cat.code,
-      label: cat.label,
+      code: group.code,
+      label: group.label,
       state,
       started,
       startTime: entry.startTime || null,
@@ -51,8 +56,8 @@ function register(router) {
     if (!user) return;
     const eventGate = requireOpenEvent(res, sendJSON);
     if (!eventGate.ok) return;
-    const category = CATEGORIES.find((c) => c.code === params.code);
-    if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
+    const group = RACE_GROUPS.find((g) => g.code === params.code);
+    if (!group) return sendJSON(res, 404, { error: 'Invalid race group' });
 
     const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
       store.update(RACE_STATUS_FILE, {}, (raceStatus) => {
@@ -84,8 +89,8 @@ function register(router) {
     if (!user) return;
     const eventGate = requireOpenEvent(res, sendJSON);
     if (!eventGate.ok) return;
-    const category = CATEGORIES.find((c) => c.code === params.code);
-    if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
+    const group = RACE_GROUPS.find((g) => g.code === params.code);
+    if (!group) return sendJSON(res, 404, { error: 'Invalid race group' });
 
     let errorMsg = null;
     const writeOutcome = await runIfEventStillOpen(eventGate.epoch, () =>
@@ -94,7 +99,7 @@ function register(router) {
         const state = deriveState(entry);
         if (state === 'FINISHED') return { data: raceStatus, result: null };
         if (state === 'NOT_STARTED') {
-          errorMsg = `Perlumbaan kategori ${category.label} belum bermula - tidak boleh ditamatkan`;
+          errorMsg = `Perlumbaan ${group.label} belum bermula - tidak boleh ditamatkan`;
           return { data: raceStatus, result: null };
         }
         return {
@@ -123,24 +128,29 @@ function register(router) {
     if (!user) return;
     const eventGate = requireOpenEvent(res, sendJSON);
     if (!eventGate.ok) return;
-    const category = CATEGORIES.find((c) => c.code === params.code);
-    if (!category) return sendJSON(res, 404, { error: 'Invalid category' });
+    const group = RACE_GROUPS.find((g) => g.code === params.code);
+    if (!group) return sendJSON(res, 404, { error: 'Invalid race group' });
 
     const currentRaceStatus = store.readJSON(RACE_STATUS_FILE, {});
     const state = deriveState(currentRaceStatus[params.code]);
     if (state === 'FINISHED') {
       return sendJSON(res, 400, {
-        error: `Perlumbaan kategori ${category.label} telah tamat - tidak boleh reset`,
+        error: `Perlumbaan ${group.label} telah tamat - tidak boleh reset`,
       });
     }
 
+    // A race group can cover more than one category (Tahap 1 Lelaki +
+    // Perempuan share the 'T1' group) - gather bibs from every category
+    // mapped to this group, not just a single categoryCode, so a shared
+    // clock can't be reset out from under results in EITHER category.
+    const groupCategoryCodes = CATEGORIES.filter((c) => c.raceGroupCode === params.code).map((c) => c.code);
     const students = store.readJSON(STUDENTS_FILE, []);
     const results = store.readJSON(RESULTS_FILE, []);
-    const categoryBibs = new Set(students.filter((s) => s.categoryCode === params.code).map((s) => s.bib));
-    const hasResults = results.some((r) => categoryBibs.has(r.bib));
+    const groupBibs = new Set(students.filter((s) => groupCategoryCodes.includes(s.categoryCode)).map((s) => s.bib));
+    const hasResults = results.some((r) => groupBibs.has(r.bib));
     if (hasResults) {
       return sendJSON(res, 400, {
-        error: `Terdapat keputusan direkodkan untuk kategori ${category.label} - padam keputusan tersebut dahulu sebelum reset`,
+        error: `Terdapat keputusan direkodkan untuk ${group.label} - padam keputusan tersebut dahulu sebelum reset`,
       });
     }
 

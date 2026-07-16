@@ -26,9 +26,21 @@
           <label>Sekolah</label>
           <select id="school" required></select>
         </div>
+      </div>
+      <div class="form-row">
         <div>
-          <label>Kategori</label>
-          <select id="category" required></select>
+          <label>Tahap</label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="tahap" value="T1" required> Tahap 1</label>
+            <label class="radio-option"><input type="radio" name="tahap" value="T2" required> Tahap 2</label>
+          </div>
+        </div>
+        <div>
+          <label>Jantina</label>
+          <div class="radio-group">
+            <label class="radio-option"><input type="radio" name="gender" value="L" required> Lelaki</label>
+            <label class="radio-option"><input type="radio" name="gender" value="P" required> Perempuan</label>
+          </div>
         </div>
       </div>
       <button type="submit">Daftar &amp; Jana No. Peserta</button>
@@ -38,7 +50,7 @@
   </div>
   <div class="card" id="importCard">
     <h2 class="section-title">Import Peserta Secara Pukal (CSV)</h2>
-    <p class="hint">Fail CSV mesti mempunyai lajur: <strong>name, schoolCode, categoryCode</strong> (susunan lajur bebas). Setiap baris diproses berasingan - jika satu baris salah, baris lain tetap berjaya diimport.</p>
+    <p class="hint">Fail CSV mesti mempunyai lajur: <strong>name, schoolCode, tahap, gender</strong> (susunan lajur bebas). <code>tahap</code>: 1/2 atau T1/T2. <code>gender</code>: L/P atau Lelaki/Perempuan. Setiap baris diproses berasingan - jika satu baris salah, baris lain tetap berjaya diimport.</p>
     <input type="file" id="csvFile" accept=".csv,text/csv">
     <div style="margin: 0.5rem 0; display: flex; gap: 0.5rem;">
       <button type="button" onclick="importCSV()">Import CSV</button>
@@ -80,8 +92,6 @@ async function loadOptions() {
     : SCHOOLS;
   document.getElementById('school').innerHTML =
     schoolOptions.map((s) => `<option value="${s.code}">${s.code} - ${escapeHTML(s.name)}</option>`).join('');
-  document.getElementById('category').innerHTML =
-    CATEGORIES.map((c) => `<option value="${c.code}">${c.code} - ${c.label}</option>`).join('');
 
   // GET /api/students already scopes a School Manager to their own school's
   // roster only (routes/students.js), so a "which school" picker here would
@@ -136,34 +146,53 @@ async function deleteStudent(bib) {
 
 function downloadTemplate() {
   const csv = toCSV(
-    [{ name: 'Ali Bin Ahmad', schoolCode: 'TK', categoryCode: 'A' }],
+    [{ name: 'Ali Bin Ahmad', schoolCode: 'TK', tahap: '1', gender: 'L' }],
     [
       { key: 'name', label: 'name' },
       { key: 'schoolCode', label: 'schoolCode' },
-      { key: 'categoryCode', label: 'categoryCode' },
+      { key: 'tahap', label: 'tahap' },
+      { key: 'gender', label: 'gender' },
     ]
   );
   downloadCSV('templat-import-peserta.csv', csv);
 }
 
+// Tahap/Jantina shown in the export are derived from the student's stored
+// categoryCode via CATEGORIES (see lib/config.js) - the student record
+// itself only ever stores categoryCode, so this is the single place that
+// turns it back into human-readable Tahap/Gender/Category columns.
+//
+// v1.7 hotfix: code 'C' was renamed from "Tahap 1 (Lelaki & Perempuan)"
+// (bib prefix 'T1') to "Tahap 1 Lelaki" (bib prefix 'T1L'). A student who
+// still carries the OLD bib prefix predates that split and was never
+// recorded with a gender - showing them as "Tahap 1 Lelaki"/"L" would be a
+// guess this project deliberately never makes (see CHANGELOG). Detected via
+// bib prefix, since that's the only signal telling old vs new 'C'
+// registrations apart (both share the same categoryCode). This is purely a
+// display fix - the underlying student record is never touched.
 function exportStudentsCSV() {
   const rows = STUDENTS.map((s) => {
     const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
     const cat = CATEGORIES.find((c) => c.code === s.categoryCode);
+    const isLegacyTahap1 = !!(cat && cat.code === 'C' && !s.bib.includes(`-${cat.bibCode}-`));
     return {
-      bib: s.bib,
       name: s.name,
       schoolCode: s.schoolCode,
       schoolName: school ? school.name : '',
+      tahap: cat ? cat.tahap : '',
+      gender: isLegacyTahap1 ? '' : (cat ? cat.gender : ''),
+      bib: s.bib,
       categoryCode: s.categoryCode,
-      categoryLabel: cat ? cat.label : '',
+      categoryLabel: isLegacyTahap1 ? 'Tahap 1 (Data Lama)' : (cat ? cat.label : ''),
     };
   });
   const csv = toCSV(rows, [
-    { key: 'bib', label: 'No. Peserta' },
     { key: 'name', label: 'Nama' },
     { key: 'schoolCode', label: 'Kod Sekolah' },
     { key: 'schoolName', label: 'Nama Sekolah' },
+    { key: 'tahap', label: 'Tahap' },
+    { key: 'gender', label: 'Jantina' },
+    { key: 'bib', label: 'No. Peserta' },
     { key: 'categoryCode', label: 'Kod Kategori' },
     { key: 'categoryLabel', label: 'Kategori' },
   ]);
@@ -210,14 +239,20 @@ document.getElementById('regForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = document.getElementById('name').value;
   const schoolCode = document.getElementById('school').value;
-  const categoryCode = document.getElementById('category').value;
+  const tahapEl = document.querySelector('input[name="tahap"]:checked');
+  const genderEl = document.querySelector('input[name="gender"]:checked');
   const msg = document.getElementById('msg');
   const bibResult = document.getElementById('bibResult');
+  if (!tahapEl || !genderEl) {
+    msg.textContent = 'Sila pilih Tahap dan Jantina.';
+    msg.style.color = 'red';
+    return;
+  }
   try {
     const student = await fetchJSON('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, schoolCode, categoryCode }),
+      body: JSON.stringify({ name, schoolCode, tahap: tahapEl.value, gender: genderEl.value }),
     });
     bibResult.innerHTML = `<div class="bib-result">No. Peserta: ${student.bib}</div>`;
     msg.textContent = 'Peserta berjaya didaftarkan.';

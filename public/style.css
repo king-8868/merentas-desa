@@ -157,6 +157,24 @@ form input:focus, form select:focus, input:focus, select:focus {
 
 .form-row > div { flex: 1; min-width: 200px; }
 
+.radio-group {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 0.4rem 0;
+}
+.radio-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 400;
+  cursor: pointer;
+}
+.radio-option input[type="radio"] {
+  width: auto;
+  margin: 0;
+}
+
 button {
   background: var(--navy);
   color: #fff;

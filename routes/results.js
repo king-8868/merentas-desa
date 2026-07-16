@@ -5,9 +5,16 @@ const { requireAuth } = require('../lib/auth');
 const { requireOpenEvent, runIfEventStillOpen } = require('../lib/lifecycle');
 const { logAudit } = require('../lib/audit');
 
+// v1.7: race clocks are keyed by raceGroupCode, not categoryCode (Tahap 1
+// Lelaki and Perempuan share one 'T1' clock - see lib/config.js). This still
+// takes a categoryCode (every call site below already has the student's
+// categoryCode on hand) and translates it internally, so nothing else in
+// this file needs to know about race groups.
 function getCategoryStatus(categoryCode) {
+  const category = CATEGORIES.find((c) => c.code === categoryCode);
+  const raceGroupCode = category ? category.raceGroupCode : categoryCode;
   const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
-  const entry = raceStatus[categoryCode];
+  const entry = raceStatus[raceGroupCode];
   return { entry, state: deriveState(entry) };
 }
 

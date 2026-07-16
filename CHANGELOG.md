@@ -3,6 +3,88 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.7] - Four-Category Competition Rules (Tahap 1 Lelaki/Perempuan Split)
+
+Rule change requested after re-confirming the official Kertas Kerja:
+individual ranking, personal awards, and school scoring now run on 4
+categories instead of 3 - Tahap 1 is split into Lelaki/Perempuan, matching
+Tahap 2's existing split. Race-day Start/Finish/Timer control is
+deliberately **not** split the same way - see below.
+
+- **4 categories, 3 race groups**: `A` Tahap 2 Lelaki, `B` Tahap 2 Perempuan,
+  `C` Tahap 1 Lelaki, `D` Tahap 1 Perempuan (`lib/config.js`). Individual
+  ranking/bib/personal-awards/school-scoring are keyed by these 4
+  `categoryCode`s. Race clocks are a **separate**, new `raceGroupCode`
+  concept with only 3 clocks - `T2L`, `T2P`, and `T1` (shared by both Tahap 1
+  categories) - so Tahap 1 Lelaki and Perempuan start together, finish
+  together, and share one `startTime`, while still ranking, awarding, and
+  scoring completely independently. `routes/race.js`, `routes/results.js`,
+  and `routes/students.js` (delete-eligibility check) all resolve a
+  student's category to its race group before touching the shared clock.
+- **Bib ranges**: `T2L` 101-199, `T2P` 201-299, `T1L` 301-399 (category `C`,
+  reusing the number range the old combined "Tahap 1" category used), `T1P`
+  401-499 (category `D`, new). First Available Bib (gap-scan, no counter
+  file) is unchanged and still per-school-per-category.
+- **Registration UI simplified**: a teacher now picks Tahap (1/2) + Jantina
+  (Lelaki/Perempuan) - never a category code directly
+  (`public/register.html`). `POST /api/students` and CSV import
+  (`routes/students.js`) both take `tahap`/`gender` and resolve the
+  categoryCode via a single shared function (`resolveCategoryCode()` in
+  `lib/config.js`), accepting `1`/`2`/`T1`/`T2`/"Tahap 1"/"Tahap 2" and
+  `L`/`P`/`Lelaki`/`Perempuan` case-insensitively. CSV columns changed from
+  `name, schoolCode, categoryCode` to `name, schoolCode, tahap, gender`.
+- **School scoring rewritten** (`routes/rankings.js`): a school's total score
+  is now the sum of **every** effective point (rank 1-10, per the points
+  table) its students earned across all 4 categories - the previous
+  "best 5 finishers only" (`topNPerSchool`) cutoff is no longer applied.
+  Still naturally bounded, since only the top 10 per category ever score
+  anything. `topNPerSchool` stays in the scoring-config schema/API for
+  backward compatibility but has no effect (`routes/scoring.js`,
+  `public/scoring.html`).
+- **New school tie-break**: schools level on total score are now ranked by
+  gold (rank 1) count, then silver (rank 2), then bronze (rank 3) count -
+  "more finishers" is no longer a tie-break. Schools still tied after all
+  four comparisons share the same displayed rank (standard competition
+  ranking, e.g. `1, 1, 3, 4`) instead of an arbitrary order.
+- **12 individual awards**: Johan/Naib Johan/Ketiga × 4 categories, via the
+  existing `categoryRankings`-driven award/export code (no change needed
+  there - it was already category-count-agnostic).
+- **Old Tahap 1 data is untouched by design** - no automatic migration, no
+  gender guessing, no historical-compatibility category was built (all
+  explicitly ruled out for this single-event 2026 system). A student
+  registered before this release under the old combined "Tahap 1" category
+  still has `categoryCode: 'C'` and is left exactly as-is; cleaning them up
+  (delete + ask the school to re-register under the new Tahap 1
+  Lelaki/Perempuan split) is a manual, out-of-band admin action, not
+  something this code does automatically.
+- **Hotfix within this same release**: a student still on the pre-split bib
+  prefix (`-T1-...`, not the new `-T1L-...`) is never labeled "Tahap 1
+  Lelaki" or given a fabricated gender in the UI or in any CSV export -
+  shown as "Tahap 1 (Data Lama)" with a blank gender instead
+  (`public/register.html`, `public/rankings.html`). Detected via bib prefix,
+  the only signal telling an old vs a new category-`C` registration apart
+  (both share the same categoryCode). Registration-roster CSV export
+  columns re-confirmed/reordered: Nama, Kod Sekolah, Nama Sekolah, Tahap,
+  Jantina, No. Peserta (Bib), Kod Kategori, Kategori - Bib was never
+  actually dropped, just re-verified present.
+- Verified in an isolated copy of production-shaped data (never against
+  real Railway/local data): registration across all 4 categories, Tahap 1
+  Lelaki+Perempuan sharing one Start/startTime/race-state and finishing
+  together, independent per-category rankings and top-3 awards, school
+  score = sum of all valid points (hand-verified arithmetic against the
+  API's own output), tie-break gold->silver->bronze->tied (isolated
+  synthetic test: two schools identical on score+medals correctly share
+  rank 1, a third ranks 3rd, not 2nd), Bib gap-filling, CSV import (mixed-
+  case tahap/gender, bad rows correctly rejected without blocking good
+  ones), check-in/finish/delete/reset all correctly resolving the shared
+  race group for both Tahap 1 categories, public leaderboard access,
+  RBAC + School Isolation, audit log coverage, full Close -> Archive ->
+  Create New lifecycle (archived `rankings-snapshot.json` correctly
+  reflects 4 categories), and a simulated Railway restart (data
+  byte-identical before/after). The legacy-label fix was additionally
+  unit-verified against representative old/new bib strings and re-checked
+  end-to-end against a seeded legacy record.
+
 ## v1.6.2 Production Release
 
 Feature Freeze milestone - bundles the most recent 1.6.x work into one

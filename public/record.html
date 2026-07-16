@@ -95,9 +95,18 @@ function raceStatusMap() {
   return new Map(RACE_STATUS.map((r) => [r.code, r]));
 }
 
+// v1.7: /api/race-status is keyed by raceGroupCode (3 shared clocks), not
+// categoryCode (4 categories) - Tahap 1 Lelaki and Perempuan share one 'T1'
+// clock. Look up the student's category first to find which race group its
+// clock actually is.
+function categoryRaceGroup(categoryCode) {
+  const cat = CATEGORIES.find((c) => c.code === categoryCode);
+  return cat ? cat.raceGroupCode : categoryCode;
+}
+
 function eligibility(student) {
   const checkedIn = checkinSet().has(student.bib);
-  const rs = raceStatusMap().get(student.categoryCode);
+  const rs = raceStatusMap().get(categoryRaceGroup(student.categoryCode));
   const raceState = rs ? rs.state : 'NOT_STARTED';
   const hasResult = resultMap().has(student.bib);
   if (hasResult) return { ok: false, reason: 'Sudah tamat', finished: true };
@@ -107,12 +116,12 @@ function eligibility(student) {
   return { ok: true, reason: '', finished: false };
 }
 
-// A recorded result can only be undone (deleted) while its category's race
+// A recorded result can only be undone (deleted) while its race group's race
 // is still RUNNING - once the race is FINISHED, results are locked (see
 // routes/results.js). Hiding the button here matches the server-side rule
 // instead of letting the user hit an error after clicking.
 function canUndoFinish(student) {
-  const rs = raceStatusMap().get(student.categoryCode);
+  const rs = raceStatusMap().get(categoryRaceGroup(student.categoryCode));
   return !rs || rs.state !== 'FINISHED';
 }
 

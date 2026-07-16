@@ -31,9 +31,7 @@
 
   <div class="card">
     <h2 class="section-title">Markah Sekolah</h2>
-    <label>Bilangan Peserta Terbaik Setiap Sekolah Yang Dikira</label>
-    <input type="number" id="topN" min="1" step="1">
-    <p class="hint">Contoh: jika ditetapkan kepada 5, hanya 5 peserta terbaik (mengikut mata) setiap sekolah dikira ke dalam jumlah markah sekolah, walaupun sekolah tersebut menghantar lebih ramai peserta.</p>
+    <p class="hint">Sejak kemas kini v1.7: markah sekolah adalah jumlah SEMUA mata sah (kedudukan #1 hingga jadual di atas) yang diperoleh peserta sekolah tersebut, merentasi keempat-empat kategori (Tahap 1 Lelaki/Perempuan, Tahap 2 Lelaki/Perempuan) - tiada had bilangan peserta yang dikira. Ini sudah automatik terhad kerana hanya kedudukan dalam jadual mata di atas yang mendapat markah.</p>
   </div>
 
   <div class="card">
@@ -69,18 +67,16 @@ function removeRank() {
 async function load() {
   const config = await fetchJSON('/api/scoring-config');
   pointsTable = [...config.pointsTable];
-  document.getElementById('topN').value = config.topNPerSchool;
   renderPoints();
 }
 
 async function save() {
   const msg = document.getElementById('msg');
-  const topNPerSchool = Number(document.getElementById('topN').value);
   try {
     await fetchJSON('/api/scoring-config', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pointsTable, topNPerSchool }),
+      body: JSON.stringify({ pointsTable }),
     });
     msg.textContent = 'Konfigurasi markah berjaya disimpan.';
     msg.style.color = 'green';

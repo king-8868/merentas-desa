@@ -18,10 +18,10 @@
 <main>
   <div class="card">
     <h2 class="section-title">Kedudukan Keseluruhan Sekolah</h2>
-    <p class="hint">Markah sekolah dikira daripada jumlah mata 5 peserta terbaik (Top 5) sahaja bagi setiap sekolah.</p>
+    <p class="hint">Markah sekolah dikira daripada jumlah SEMUA mata sah (kedudukan #1-#10) yang diperoleh peserta sekolah tersebut merentasi keempat-empat kategori - tiada had bilangan peserta. Jika markah sama, kedudukan ditentukan mengikut bilangan Johan, kemudian Naib Johan, kemudian Ketiga.</p>
     <button type="button" onclick="exportSchoolRankingCSV()">Eksport Kedudukan Sekolah (CSV)</button>
     <table>
-      <thead><tr><th>Kedudukan</th><th>Sekolah</th><th>Jumlah Markah</th><th>Peserta Selesai</th><th>Jumlah Peserta</th></tr></thead>
+      <thead><tr><th>Kedudukan</th><th>Sekolah</th><th>Jumlah Markah</th><th>🥇</th><th>🥈</th><th>🥉</th><th>Peserta Selesai</th><th>Jumlah Peserta</th></tr></thead>
       <tbody id="schoolRanking"></tbody>
     </table>
   </div>
@@ -50,7 +50,7 @@ function medalClass(rank) {
 function renderSchoolRanking(schoolRankings) {
   const tbody = document.getElementById('schoolRanking');
   if (!schoolRankings.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Tiada data lagi.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">Tiada data lagi.</td></tr>';
     return;
   }
   tbody.innerHTML = schoolRankings.map((s) => `
@@ -58,6 +58,9 @@ function renderSchoolRanking(schoolRankings) {
       <td>${s.rank}</td>
       <td>${schoolBadge(s.code, SCHOOLS)} ${escapeHTML(s.name)}</td>
       <td><strong>${s.totalScore}</strong></td>
+      <td>${s.golds}</td>
+      <td>${s.silvers}</td>
+      <td>${s.bronzes}</td>
       <td>${s.finishedCount}</td>
       <td>${s.totalParticipants}</td>
     </tr>
@@ -146,6 +149,9 @@ function exportSchoolRankingCSV() {
     code: s.code,
     name: s.name,
     totalScore: s.totalScore,
+    golds: s.golds,
+    silvers: s.silvers,
+    bronzes: s.bronzes,
     finishedCount: s.finishedCount,
     totalParticipants: s.totalParticipants,
   }));
@@ -154,10 +160,27 @@ function exportSchoolRankingCSV() {
     { key: 'code', label: 'Kod Sekolah' },
     { key: 'name', label: 'Nama Sekolah' },
     { key: 'totalScore', label: 'Jumlah Markah' },
+    { key: 'golds', label: 'Johan' },
+    { key: 'silvers', label: 'Naib Johan' },
+    { key: 'bronzes', label: 'Ketiga' },
     { key: 'finishedCount', label: 'Peserta Selesai' },
     { key: 'totalParticipants', label: 'Jumlah Peserta' },
   ]);
   downloadCSV('kedudukan-sekolah.csv', csv);
+}
+
+// v1.7 hotfix: a finisher still on the OLD 'C' bib prefix ('T1', not the
+// new 'T1L') predates the Tahap 1 Lelaki/Perempuan split and was never
+// recorded with a gender - never label them "Tahap 1 Lelaki" in an export.
+// Same reasoning as public/register.html's exportStudentsCSV(). Looks up
+// bibCode from the global CATEGORIES list (categoryRankings entries don't
+// carry it - only code/label).
+function categoryLabelFor(categoryCode, categoryLabel, bib) {
+  const cat = CATEGORIES.find((c) => c.code === categoryCode);
+  if (cat && cat.code === 'C' && !bib.includes(`-${cat.bibCode}-`)) {
+    return 'Tahap 1 (Data Lama)';
+  }
+  return categoryLabel;
 }
 
 function exportIndividualResultsCSV() {
@@ -167,7 +190,7 @@ function exportIndividualResultsCSV() {
     cat.finished.forEach((s) => {
       const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
       rows.push({
-        category: cat.label,
+        category: categoryLabelFor(cat.code, cat.label, s.bib),
         rank: s.rank,
         bib: s.bib,
         name: s.name,
@@ -198,7 +221,7 @@ function exportPrizeWinnersCSV() {
     cat.finished.slice(0, 3).forEach((s) => {
       const school = SCHOOLS.find((sc) => sc.code === s.schoolCode);
       rows.push({
-        category: cat.label,
+        category: categoryLabelFor(cat.code, cat.label, s.bib),
         rank: s.rank,
         bib: s.bib,
         name: s.name,
