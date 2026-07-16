@@ -3,6 +3,62 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.7.1] - Bulk Delete Students
+
+Adds a real batch-delete for `Pendaftaran Peserta` (`public/register.html`),
+primarily so an Admin can clear out pre-v1.7 "Tahap 1 (Data Lama)" records
+without clicking Delete one at a time - but general enough for everyday
+roster cleanup too.
+
+- **New API**: `POST /api/students/bulk-delete` (`routes/students.js`).
+  Takes either `{ bibs: [...] }` (an explicit list) or
+  `{ filters: { schoolCode, categoryCode, legacyOnly } }` (delete everything
+  matching). `legacyOnly: true` selects only pre-split category-`C` students
+  still on the old bib prefix (`isLegacyTahap1()`, now in `lib/config.js` so
+  both the API and the client-side display fix from `[1.7]` share one
+  definition) - it can never match a new Tahap 1 Lelaki (`-T1L-`) or
+  Perempuan (`-T1P-`) registration. Same permission as the existing
+  single-student delete (`student.delete` - admin/school, not expanded to
+  official), same lifecycle/race-group-finished protection, same
+  students+results+checkins cascade, all inside the same atomic
+  `EVENT_SCOPE_LOCK`-guarded transaction. Per-bib/per-student best-effort,
+  matching the existing CSV import contract - one un-deletable student
+  (result locked because their race group already finished) doesn't block
+  the rest of the batch. Returns
+  `{ requestedCount, deletedCount, skippedCount, deletedBibs, skipped }`.
+  Audit-logged as `student.bulk-delete` with actor, schools, categories, and
+  the full bib list.
+- **RBAC for the `bibs` path**: a School Manager's request is matched
+  against their own already-scoped roster (same pattern as
+  `GET /api/students`) - a bib belonging to another school and a bib that
+  doesn't exist at all are indistinguishable in the response (both land in
+  `skipped` with the same generic reason). This is a deliberate, best-effort
+  "delete what's valid, skip the rest" contract - not a whole-batch 403 -
+  since a hard reject-everything-on-one-bad-bib response would otherwise let
+  a School Manager learn "this bib exists at another school" (403) vs "this
+  bib doesn't exist" (200/skipped) by probing one bib at a time. The `filters`
+  path is scoped the same way `GET /api/students?school=` already is: a
+  foreign `schoolCode` in filters just matches 0 results, not an error.
+- **UI** (`public/register.html`): a checkbox per row (hidden entirely for
+  Official - no delete permission to begin with), Pilih Semua / Kosongkan
+  Pilihan / Padam Dipilih acting on the current selection, Padam Semua
+  Mengikut Penapis acting on whatever the school/category filters currently
+  show, and an Admin-only Padam Semua Tahap 1 (Data Lama). Every delete path
+  shows a confirmation dialog first (count, schools, categories, an explicit
+  "cannot be undone" warning) before calling the API.
+- Verified in an isolated copy of production-shaped data: admin cross-school
+  batch delete, a School Manager deleting only their own students, a mixed
+  bib list (own + another school's + a nonexistent bib) correctly deleting
+  the valid one and skipping the other two with the same generic reason (no
+  403), Official denied, filter-by-school, filter-by-category,
+  Padam Semua Tahap 1 (Data Lama) correctly leaving new Tahap 1
+  Lelaki/Perempuan untouched, cascade delete of checkins/results, a mixed
+  batch correctly skipping a student whose race group had already finished
+  while still deleting the rest, First Available Bib gap-filling still
+  working post-delete, rejection while the event isn't OPEN, audit log
+  coverage, no regression in Dashboard/Rankings/public Leaderboard, and a
+  simulated Railway restart (data byte-identical before/after).
+
 ## [1.7] - Four-Category Competition Rules (Tahap 1 Lelaki/Perempuan Split)
 
 Rule change requested after re-confirming the official Kertas Kerja:

@@ -1,5 +1,5 @@
 const store = require('../lib/store');
-const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, resolveCategoryCode } = require('../lib/config');
+const { CATEGORIES, STUDENTS_FILE, RESULTS_FILE, SCHOOLS_FILE, CHECKINS_FILE, RACE_STATUS_FILE, resolveCategoryCode, isLegacyTahap1 } = require('../lib/config');
 const { pickBib } = require('../lib/bib');
 const { parseCSV } = require('../lib/csv');
 const { deriveState } = require('./race');
@@ -279,6 +279,149 @@ function register(router) {
       result: 'success',
     });
     sendJSON(res, 200, { ok: true });
+  });
+
+  // v1.7.1: real batch delete - the frontend must never loop the single
+  // DELETE endpoint above dozens of times (one HTTP round-trip per student
+  // is slow and isn't atomic as a set). Same permission ('student.delete' -
+  // deliberately NOT expanded to 'official'), same lifecycle/race-group
+  // protection, and the same cascade-delete of results+checkins as the
+  // single-student DELETE above, just applied to a set of bibs in one
+  // transaction.
+  //
+  // Body is EITHER:
+  //   { bibs: ["TK-T1-301", ...] }
+  // OR:
+  //   { filters: { schoolCode, categoryCode, legacyOnly } }
+  // `legacyOnly: true` selects only pre-v1.7 category-C students still on
+  // the old bib prefix (see isLegacyTahap1() in lib/config.js) - this is
+  // what powers "Padam Semua Tahap 1 (Data Lama)". It never matches a new
+  // Tahap 1 Lelaki ('-T1L-') or Tahap 1 Perempuan ('-T1P-') registration.
+  //
+  // School-scoping is applied to the FULL roster FIRST, before bibs/filters
+  // are matched against it - the exact same pattern as GET /api/students.
+  // A bib belonging to another school is then indistinguishable from a bib
+  // that doesn't exist at all, for both input shapes - there is no way to
+  // probe or delete another school's roster via a crafted request.
+  router.add('POST', '/api/students/bulk-delete', async (req, res, { sendJSON, parseBody }) => {
+    const user = requireAuth(req, res, sendJSON, 'student.delete');
+    if (!user) return;
+    const eventGate = requireOpenEvent(res, sendJSON);
+    if (!eventGate.ok) return;
+
+    const body = await parseBody(req);
+    const allStudents = store.readJSON(STUDENTS_FILE, []);
+    // Filter-based deletion is scoped the same way GET /api/students already
+    // scopes its `?school=` query param: a School Manager's filters are
+    // silently intersected with their own school, so a foreign schoolCode in
+    // `filters` just matches nothing (0 results), not an error - same
+    // "search criteria" semantics as everywhere else in this app.
+    const scoped = user.role === 'school'
+      ? allStudents.filter((s) => s.schoolCode === user.schoolCode)
+      : allStudents;
+
+    let candidates;
+    let requestedCount;
+    const skipped = [];
+    if (Array.isArray(body.bibs)) {
+      if (body.bibs.length === 0) {
+        return sendJSON(res, 400, { error: 'bibs must not be empty' });
+      }
+      // Per-bib, best-effort - same "do as much as is valid, report the
+      // rest" contract as CSV import (POST /api/students/import). Matched
+      // against `scoped` (already role-scoped, same as GET /api/students),
+      // so a School Manager's bib list is silently intersected with their
+      // own school: a bib belonging to another school and a bib that
+      // doesn't exist at all are indistinguishable in the response (same
+      // generic reason below) - this is deliberately safer than a whole-
+      // batch 403, which would otherwise let a School Manager learn "this
+      // bib exists at another school" (403) vs "this bib doesn't exist"
+      // (200/skipped) by probing one bib at a time.
+      const bibSet = new Set(body.bibs);
+      candidates = scoped.filter((s) => bibSet.has(s.bib));
+      requestedCount = body.bibs.length;
+      const foundSet = new Set(candidates.map((s) => s.bib));
+      body.bibs.forEach((bib) => {
+        if (!foundSet.has(bib)) skipped.push({ bib, reason: 'Bib tidak wujud atau tiada kebenaran' });
+      });
+    } else if (body.filters && typeof body.filters === 'object') {
+      const { schoolCode, categoryCode, legacyOnly } = body.filters;
+      candidates = scoped.filter((s) => {
+        if (schoolCode && s.schoolCode !== schoolCode) return false;
+        if (legacyOnly) return s.categoryCode === 'C' && isLegacyTahap1(s);
+        if (categoryCode && s.categoryCode !== categoryCode) return false;
+        return true;
+      });
+      requestedCount = candidates.length;
+    } else {
+      return sendJSON(res, 400, { error: 'bibs (array) or filters (object) is required' });
+    }
+
+    const results = store.readJSON(RESULTS_FILE, []);
+    const raceStatus = store.readJSON(RACE_STATUS_FILE, {});
+    const resultBibs = new Set(results.map((r) => r.bib));
+
+    const toDelete = [];
+    candidates.forEach((student) => {
+      if (resultBibs.has(student.bib)) {
+        const category = CATEGORIES.find((c) => c.code === student.categoryCode);
+        const raceGroupCode = category ? category.raceGroupCode : student.categoryCode;
+        const state = deriveState(raceStatus[raceGroupCode]);
+        if (state === 'FINISHED') {
+          skipped.push({
+            bib: student.bib,
+            reason: `Perlumbaan kategori ${category ? category.label : student.categoryCode} telah tamat - peserta dengan keputusan tidak boleh dipadam`,
+          });
+          return;
+        }
+      }
+      toDelete.push(student.bib);
+    });
+
+    if (toDelete.length === 0) {
+      return sendJSON(res, 200, { requestedCount, deletedCount: 0, skippedCount: skipped.length, deletedBibs: [], skipped });
+    }
+
+    const deleteBibSet = new Set(toDelete);
+    // Same lifecycle-gated, three-file atomic transaction as the
+    // single-student DELETE above, just filtering by a Set instead of one
+    // bib. No other student's bib/data is touched.
+    const writeOutcome = await runIfEventStillOpen(eventGate.epoch, async () => {
+      await store.update(STUDENTS_FILE, [], (students) => ({
+        data: students.filter((s) => !deleteBibSet.has(s.bib)),
+        result: null,
+      }));
+      await store.update(RESULTS_FILE, [], (results) => ({
+        data: results.filter((r) => !deleteBibSet.has(r.bib)),
+        result: null,
+      }));
+      await store.update(CHECKINS_FILE, [], (checkins) => ({
+        data: checkins.filter((c) => !deleteBibSet.has(c.bib)),
+        result: null,
+      }));
+    });
+    if (!writeOutcome.ok) {
+      return sendJSON(res, 400, { error: writeOutcome.error, lifecycleState: writeOutcome.lifecycleState });
+    }
+
+    const schoolsAffected = [...new Set(candidates.filter((s) => toDelete.includes(s.bib)).map((s) => s.schoolCode))];
+    const categoriesAffected = [...new Set(candidates.filter((s) => toDelete.includes(s.bib)).map((s) => s.categoryCode))];
+    logAudit({
+      actor: user.username,
+      actorRole: user.role,
+      action: 'student.bulk-delete',
+      target: null,
+      result: skipped.length ? 'partial' : 'success',
+      detail: `deleted ${toDelete.length}/${requestedCount}; schools=${schoolsAffected.join(',')}; categories=${categoriesAffected.join(',')}; bibs=${toDelete.join(', ')}`,
+    });
+
+    sendJSON(res, 200, {
+      requestedCount,
+      deletedCount: toDelete.length,
+      skippedCount: skipped.length,
+      deletedBibs: toDelete,
+      skipped,
+    });
   });
 }
 

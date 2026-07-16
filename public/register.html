@@ -65,8 +65,16 @@
       <select id="filterCategory"><option value="">Semua Kategori</option></select>
       <button type="button" onclick="exportStudentsCSV()">Eksport Senarai (CSV)</button>
     </div>
+    <div class="bulk-actions" id="bulkActions" style="display:none">
+      <span id="selectedCount" class="hint" style="margin:0">0 dipilih</span>
+      <button type="button" class="secondary" onclick="selectAllVisible()">Pilih Semua</button>
+      <button type="button" class="secondary" onclick="clearSelection()">Kosongkan Pilihan</button>
+      <button type="button" class="danger" onclick="bulkDeleteSelected()">Padam Dipilih</button>
+      <button type="button" class="danger" onclick="bulkDeleteByFilter()">Padam Semua Mengikut Penapis</button>
+      <button type="button" class="danger" id="btnDeleteLegacy" style="display:none" onclick="deleteLegacyTahap1()">Padam Semua Tahap 1 (Data Lama)</button>
+    </div>
     <table>
-      <thead><tr><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th></th></tr></thead>
+      <thead><tr><th id="selectAllTh" style="display:none"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAllCheckbox(this)"></th><th>No. Peserta</th><th>Nama</th><th>Sekolah</th><th>Kategori</th><th></th></tr></thead>
       <tbody id="studentList"></tbody>
     </table>
   </div>
@@ -77,6 +85,15 @@ let SCHOOLS = [];
 let CATEGORIES = [];
 let STUDENTS = [];
 let CURRENT_USER = null;
+let SELECTED = new Set();
+
+// Same permission boundary as the server (routes/students.js requires
+// 'student.delete', which is admin/school - never official). This only
+// controls whether the bulk-delete UI even renders; the real enforcement
+// is entirely server-side.
+function canBulkDelete() {
+  return CURRENT_USER && (CURRENT_USER.role === 'admin' || CURRENT_USER.role === 'school');
+}
 
 async function loadOptions() {
   [SCHOOLS, CATEGORIES] = await Promise.all([
@@ -114,21 +131,44 @@ async function loadStudents() {
   renderStudents();
 }
 
-function renderStudents() {
+// The current filtered view - shared by rendering, "Pilih Semua" (only
+// selects what's currently visible, not the whole roster), and "Padam Semua
+// Mengikut Penapis" (deletes exactly what this function returns).
+function getFilteredList() {
   const filterSchool = document.getElementById('filterSchool').value;
   const filterCategory = document.getElementById('filterCategory').value;
   let list = STUDENTS;
   if (filterSchool) list = list.filter((s) => s.schoolCode === filterSchool);
   if (filterCategory) list = list.filter((s) => s.categoryCode === filterCategory);
+  return list;
+}
+
+function renderStudents() {
+  const list = getFilteredList();
+
+  const bulkActions = document.getElementById('bulkActions');
+  const selectAllTh = document.getElementById('selectAllTh');
+  const canManage = !CURRENT_USER || CURRENT_USER.role !== 'official';
+  const showBulk = canBulkDelete();
+  bulkActions.style.display = showBulk ? 'flex' : 'none';
+  selectAllTh.style.display = showBulk ? '' : 'none';
+  document.getElementById('btnDeleteLegacy').style.display = (CURRENT_USER && CURRENT_USER.role === 'admin') ? '' : 'none';
+
+  // A student removed from view by a filter change, or deleted server-side,
+  // should not linger in the selection silently - keep SELECTED limited to
+  // bibs that are still actually in STUDENTS.
+  const allBibs = new Set(STUDENTS.map((s) => s.bib));
+  SELECTED.forEach((bib) => { if (!allBibs.has(bib)) SELECTED.delete(bib); });
 
   const tbody = document.getElementById('studentList');
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="5" class="empty">Tiada peserta berdaftar.</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${showBulk ? 6 : 5}" class="empty">Tiada peserta berdaftar.</td></tr>`;
+    updateSelectedCount();
     return;
   }
-  const canManage = !CURRENT_USER || CURRENT_USER.role !== 'official';
   tbody.innerHTML = list.map((s) => `
     <tr>
+      ${showBulk ? `<td><input type="checkbox" ${SELECTED.has(s.bib) ? 'checked' : ''} onchange="toggleOne('${s.bib}', this.checked)"></td>` : ''}
       <td><strong>${s.bib}</strong></td>
       <td>${escapeHTML(s.name)}</td>
       <td>${schoolBadge(s.schoolCode, SCHOOLS)}</td>
@@ -136,12 +176,140 @@ function renderStudents() {
       <td>${canManage ? `<button class="danger" onclick="deleteStudent('${s.bib}')">Padam</button>` : ''}</td>
     </tr>
   `).join('');
+
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  if (selectAllCheckbox) {
+    const visibleBibs = list.map((s) => s.bib);
+    selectAllCheckbox.checked = visibleBibs.length > 0 && visibleBibs.every((b) => SELECTED.has(b));
+  }
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const el = document.getElementById('selectedCount');
+  if (el) el.textContent = `${SELECTED.size} dipilih`;
+}
+
+function toggleOne(bib, checked) {
+  if (checked) SELECTED.add(bib); else SELECTED.delete(bib);
+  updateSelectedCount();
+  const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+  if (selectAllCheckbox) {
+    const visibleBibs = getFilteredList().map((s) => s.bib);
+    selectAllCheckbox.checked = visibleBibs.length > 0 && visibleBibs.every((b) => SELECTED.has(b));
+  }
+}
+
+function toggleSelectAllCheckbox(checkbox) {
+  const visibleBibs = getFilteredList().map((s) => s.bib);
+  if (checkbox.checked) visibleBibs.forEach((b) => SELECTED.add(b));
+  else visibleBibs.forEach((b) => SELECTED.delete(b));
+  renderStudents();
+}
+
+// "Pilih Semua" only selects the currently-filtered view, not the entire
+// roster - consistent with "Padam Semua Mengikut Penapis" below, which also
+// only ever acts on the current filter.
+function selectAllVisible() {
+  getFilteredList().forEach((s) => SELECTED.add(s.bib));
+  renderStudents();
+}
+
+function clearSelection() {
+  SELECTED.clear();
+  renderStudents();
 }
 
 async function deleteStudent(bib) {
   if (!confirm(`Padam peserta ${bib} dan rekod masa mereka?`)) return;
   await fetchJSON(`/api/students/${encodeURIComponent(bib)}`, { method: 'DELETE' });
   loadStudents();
+}
+
+// Shared by all 3 bulk-delete entry points below - single call to the real
+// batch API (routes/students.js POST /api/students/bulk-delete), never a
+// client-side loop over the single-student DELETE endpoint.
+async function runBulkDelete(payload) {
+  try {
+    const result = await fetchJSON('/api/students/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    SELECTED.clear();
+    let message = `${result.deletedCount} daripada ${result.requestedCount} peserta berjaya dipadam.`;
+    if (result.skippedCount > 0) {
+      message += `\n\n${result.skippedCount} peserta dilangkau:\n` +
+        result.skipped.slice(0, 10).map((s) => `- ${s.bib}: ${s.reason}`).join('\n') +
+        (result.skipped.length > 10 ? `\n...dan ${result.skipped.length - 10} lagi` : '');
+    }
+    alert(message);
+    await loadStudents();
+  } catch (err) {
+    alert(`Ralat memadam: ${err.message}`);
+  }
+}
+
+function bulkDeleteSelected() {
+  if (SELECTED.size === 0) {
+    alert('Tiada peserta dipilih.');
+    return;
+  }
+  const selectedStudents = STUDENTS.filter((s) => SELECTED.has(s.bib));
+  const schools = [...new Set(selectedStudents.map((s) => s.schoolCode))];
+  const categories = [...new Set(selectedStudents.map((s) => s.categoryCode))];
+  const confirmMsg =
+    `Padam ${selectedStudents.length} peserta yang dipilih?\n\n` +
+    `Sekolah: ${schools.join(', ')}\n` +
+    `Kategori: ${categories.join(', ')}\n\n` +
+    `Tindakan ini TIDAK BOLEH DIBATALKAN.`;
+  if (!confirm(confirmMsg)) return;
+  runBulkDelete({ bibs: [...SELECTED] });
+}
+
+function bulkDeleteByFilter() {
+  const filterSchool = document.getElementById('filterSchool').value;
+  const filterCategory = document.getElementById('filterCategory').value;
+  const list = getFilteredList();
+  if (list.length === 0) {
+    alert('Tiada peserta sepadan dengan penapis semasa.');
+    return;
+  }
+  const schools = [...new Set(list.map((s) => s.schoolCode))];
+  const categories = [...new Set(list.map((s) => s.categoryCode))];
+  const confirmMsg =
+    `Padam SEMUA peserta mengikut penapis semasa?\n\n` +
+    `Penapis - Sekolah: ${filterSchool || 'Semua'} | Kategori: ${filterCategory || 'Semua'}\n` +
+    `Jumlah: ${list.length} peserta\n` +
+    `Sekolah terlibat: ${schools.join(', ')}\n` +
+    `Kategori terlibat: ${categories.join(', ')}\n\n` +
+    `Tindakan ini TIDAK BOLEH DIBATALKAN.`;
+  if (!confirm(confirmMsg)) return;
+  const filters = {};
+  if (filterSchool) filters.schoolCode = filterSchool;
+  if (filterCategory) filters.categoryCode = filterCategory;
+  runBulkDelete({ filters });
+}
+
+// Admin-only (button is hidden for every other role - see renderStudents()).
+// Matches only categoryCode 'C' students still on the OLD bib prefix
+// ('-T1-') - never a new Tahap 1 Lelaki ('-T1L-') or Perempuan ('-T1P-')
+// registration. Same detection rule as isLegacyTahap1() in lib/config.js.
+function deleteLegacyTahap1() {
+  const legacy = STUDENTS.filter((s) => s.categoryCode === 'C' && !s.bib.includes('-T1L-'));
+  if (legacy.length === 0) {
+    alert('Tiada rekod Tahap 1 (Data Lama) dijumpai.');
+    return;
+  }
+  const schools = [...new Set(legacy.map((s) => s.schoolCode))];
+  const confirmMsg =
+    `Padam SEMUA ${legacy.length} rekod Tahap 1 (Data Lama)?\n\n` +
+    `Sekolah terlibat: ${schools.join(', ')}\n\n` +
+    `Hanya rekod lama (Bib format -T1-) akan dipadam. Tahap 1 Lelaki (-T1L-) ` +
+    `dan Tahap 1 Perempuan (-T1P-) yang baharu TIDAK akan disentuh.\n\n` +
+    `Tindakan ini TIDAK BOLEH DIBATALKAN.`;
+  if (!confirm(confirmMsg)) return;
+  runBulkDelete({ filters: { legacyOnly: true } });
 }
 
 function downloadTemplate() {
