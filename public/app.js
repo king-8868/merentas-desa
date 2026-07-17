@@ -101,6 +101,7 @@ const NAV_ITEMS = [
   { href: 'users.html', label: 'Pengurusan Pengguna' },
   { href: 'system-info.html', label: 'Maklumat Sistem' },
   { href: 'event-settings.html', label: 'Tetapan Acara' },
+  { href: 'announcement.html', label: 'Pengumuman' },
 ];
 
 // Which nav links each role gets to see. Backend routes are the real
@@ -108,7 +109,7 @@ const NAV_ITEMS = [
 // menu offers. 'public' is for an anonymous visitor (currently only
 // leaderboard.html renders without requiring a session).
 const NAV_VISIBILITY = {
-  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html', 'event-settings.html'],
+  admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html', 'event-settings.html', 'announcement.html'],
   school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
   official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
   public: ['leaderboard.html'],
@@ -197,6 +198,11 @@ function addLogoutLink() {
   link.addEventListener('click', async (e) => {
     e.preventDefault();
     await fetch('/api/auth/logout', { method: 'POST' });
+    // v1.8: sessionStorage is scoped to the browser tab, not the login
+    // session - it would otherwise still say "already seen" if a different
+    // account logs in on the same tab without closing it. The announcement
+    // popup (public/index.html) must show again on every fresh login.
+    sessionStorage.removeItem('announcementSeen');
     window.location.href = 'login.html';
   });
   nav.appendChild(link);

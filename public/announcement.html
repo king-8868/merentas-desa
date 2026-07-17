@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ms">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pengumuman - Merentas Desa 2026</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <div class="title-block">
+    <h1>KEJOHANAN MERENTAS DESA SEMPENA HARI KEBANGSAAN 2026</h1>
+    <h2>PERINGKAT SEKOLAH ZON LUAR BANDAR</h2>
+  </div>
+  <nav></nav>
+</header>
+<main>
+  <div class="card">
+    <h2 class="section-title">Pengumuman</h2>
+    <p class="hint">Pengumuman ini dipaparkan sebagai pop-up kepada Pengurus Sekolah setiap kali mereka log masuk, selagi ia diaktifkan. Hanya SATU pengumuman semasa disokong buat masa ini.</p>
+    <form id="announcementForm">
+      <label>Tajuk</label>
+      <input type="text" id="title" maxlength="120">
+      <label>Kandungan</label>
+      <textarea id="message" maxlength="3000"></textarea>
+      <label class="radio-option" style="margin-bottom:1rem;">
+        <input type="checkbox" id="active" style="width:auto;margin:0;">
+        Aktifkan Pengumuman
+      </label>
+      <div class="form-row">
+        <button type="submit" id="btnSave">Simpan</button>
+        <button type="button" id="btnDeactivate" onclick="deactivate()">Nyahaktifkan</button>
+      </div>
+    </form>
+    <p class="hint" id="updatedInfo">Dikemas Kini: -</p>
+    <p id="msg"></p>
+  </div>
+</main>
+<script src="app.js"></script>
+<script>
+let LAST_LOADED = null; // last-saved snapshot, used to detect unsaved edits
+
+function formatUpdated(a) {
+  if (!a.updatedAt) return 'Dikemas Kini: -';
+  const when = new Date(a.updatedAt).toLocaleString('ms-MY');
+  return `Dikemas Kini: ${when}${a.updatedBy ? ' oleh ' + escapeHTML(a.updatedBy) : ''}`;
+}
+
+function applyToForm(a) {
+  document.getElementById('title').value = a.title || '';
+  document.getElementById('message').value = a.message || '';
+  document.getElementById('active').checked = !!a.active;
+  document.getElementById('updatedInfo').textContent = formatUpdated(a);
+  LAST_LOADED = { title: a.title || '', message: a.message || '', active: !!a.active };
+}
+
+async function load() {
+  const a = await fetchJSON('/api/announcement');
+  applyToForm(a);
+}
+
+// Point 10: once saved, the success message shouldn't keep claiming "saved"
+// if the admin has since typed something different - any edit after a save
+// clears the message so it can't misleadingly linger.
+function clearMsgOnEdit() {
+  document.getElementById('msg').textContent = '';
+}
+['title', 'message', 'active'].forEach((id) => {
+  document.getElementById(id).addEventListener('input', clearMsgOnEdit);
+  document.getElementById(id).addEventListener('change', clearMsgOnEdit);
+});
+
+async function save(payload) {
+  const msg = document.getElementById('msg');
+  const btnSave = document.getElementById('btnSave');
+  const btnDeactivate = document.getElementById('btnDeactivate');
+  btnSave.disabled = true;
+  btnDeactivate.disabled = true;
+  const originalLabel = btnSave.textContent;
+  btnSave.textContent = 'Menyimpan...';
+  try {
+    const result = await fetchJSON('/api/announcement', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    applyToForm(result);
+    msg.textContent = result.active ? 'Pengumuman berjaya disimpan.' : 'Pengumuman telah dinyahaktifkan.';
+    msg.style.color = 'green';
+  } catch (err) {
+    msg.textContent = err.message;
+    msg.style.color = 'red';
+  } finally {
+    btnSave.disabled = false;
+    btnDeactivate.disabled = false;
+    btnSave.textContent = originalLabel;
+  }
+}
+
+document.getElementById('announcementForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  save({
+    title: document.getElementById('title').value,
+    message: document.getElementById('message').value,
+    active: document.getElementById('active').checked,
+  });
+});
+
+// Deactivating deliberately keeps whatever title/message is currently in
+// the form (which may include unsaved edits) - it only flips `active` to
+// false, never clears the content (RULES: "active=false boleh kekalkan
+// tajuk dan kandungan").
+function deactivate() {
+  save({
+    title: document.getElementById('title').value,
+    message: document.getElementById('message').value,
+    active: false,
+  });
+}
+
+requireLogin(['admin']).then((user) => { if (user) load(); });
+</script>
+</body>
+</html>

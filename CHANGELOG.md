@@ -3,6 +3,76 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.8.0] - Announcement Popup
+
+Adds a single, simple "current announcement" - Admin edits it, School
+Manager sees it as a popup on login. Deliberately narrow scope by design:
+one announcement (no list), no schedule/priority/Markdown/attachments, no
+per-account read history - see the feature discussion for the full list of
+what was explicitly ruled out for v1.
+
+- **New API** (`routes/announcement.js`): `GET /api/announcement` (admin,
+  school - `announcement.view`) and `PUT /api/announcement` (admin only -
+  `announcement.update`). Same "one JSON file, live source of truth after
+  first run" pattern as `event-config` (`routes/system.js`) -
+  `data/announcement.json`, auto-created by `lib/init-data.js` on first
+  boot with `{ active: false, title: '', message: '', updatedAt: null,
+  updatedBy: null }`. PUT trims title/message, caps them at 120/3000
+  characters, requires both non-empty only when `active: true` (deactivating
+  is allowed to keep whatever content was already there), stamps
+  `updatedAt`/`updatedBy`, and is audit-logged.
+- **New permissions**: `announcement.view` (admin, school) and
+  `announcement.update` (admin) - Official is deliberately not in either;
+  v1 has no use case for them to read or manage it. Picked up automatically
+  by the startup permission-merge added in `[1.6.2]` - no manual edit to a
+  live `role_permissions.json` needed on any already-running environment.
+- **Admin page** (`public/announcement.html`, linked from the nav as
+  "Pengumuman", admin-only): Tajuk / Kandungan / Aktifkan Pengumuman /
+  Simpan / Nyahaktifkan, following the same load-then-edit-then-save
+  pattern as `event-settings.html`. Shows a loading state and disables both
+  buttons while a save is in flight (prevents double-submit), and clears
+  any prior success/error message the moment a field is edited again, so a
+  stale "berjaya disimpan" can never keep displaying next to unsaved
+  changes.
+- **School Manager homepage popup** (`public/index.html`): shown only for
+  the `school` role, only when `active: true`, and only once per browser
+  tab per `updatedAt` value - tracked via `sessionStorage` (not
+  `localStorage`, since the requirement is "show again on every fresh
+  login", not "mark permanently read"). Logging out
+  (`addLogoutLink()` in `public/app.js`) explicitly clears that
+  `sessionStorage` key, so switching accounts in the same tab doesn't
+  suppress the next account's popup. No click-outside/ESC dismissal - only
+  the "Saya Sudah Baca" button closes it. Content is rendered via
+  `textContent` (never `innerHTML`) with `white-space: pre-wrap` in CSS, so
+  the message can never be interpreted as HTML while still preserving line
+  breaks. A failed `/api/announcement` fetch is caught and silently
+  skipped - it degrades to "no popup", never breaks the rest of the
+  dashboard.
+- **Fix**: `public/register.html`'s "Pilih Semua" / "Kosongkan Pilihan"
+  buttons (added in `[1.7.1]`) used `class="secondary"`, which
+  `public/style.css` never actually defined - functionally harmless (fell
+  back to the default solid-navy button look) but not the intended
+  lower-emphasis style. Added a real `button.secondary` rule (outlined/
+  tinted navy, same pill shape/sizing as every other button) so it's
+  available project-wide instead of needing bespoke CSS wherever a
+  secondary action shows up next to a primary/danger one.
+- Verified: 5 backend/shared JS files + 3 pages' inline scripts + CSS all
+  syntax-checked clean. In an isolated copy of production-shaped data (never
+  against real Railway/local data): 13 announcement-specific checks (admin/
+  school/official/anonymous access, validation of non-boolean `active`,
+  empty title/message while activating, length caps, trimming, deactivate-
+  preserves-content, `announcement.json` auto-created on first boot, audit
+  log coverage) and 11 regression checks across login/session, the
+  dashboard summary, the 4-category/3-race-group data from `[1.7]`, and the
+  `[1.7.1]` bulk-delete endpoint's RBAC - all 24 passed, 0 failed, no
+  regressions found. This project has no automated test suite (`npm test`)
+  and no test framework - `package.json` only ever defined `start`; all
+  verification here (as with every prior release) was scripted `curl`
+  checks against an isolated server instance, not unit tests. The actual
+  popup appearance/dismissal/re-trigger behavior in a real browser was
+  reasoned through by code review only and still needs a human to click
+  through once in a real browser before relying on it.
+
 ## [1.7.1] - Bulk Delete Students
 
 Adds a real batch-delete for `Pendaftaran Peserta` (`public/register.html`),

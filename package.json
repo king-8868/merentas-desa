@@ -1,6 +1,6 @@
 {
   "name": "merentas-desa",
-  "version": "1.0.0",
+  "version": "1.8.0",
   "description": "Kejohanan Merentas Desa 2026 - inter-school cross-country registration, results, ranking and school scoring system",
   "main": "server.js",
   "scripts": {

@@ -35,6 +35,23 @@
     </table>
   </div>
 </main>
+
+<!-- v1.8: Pengumuman popup - School Manager only, see checkAnnouncement()
+     below. Deliberately no click-outside/ESC dismissal; only the button
+     inside closes it. Hidden by default so it never flashes on any role
+     that doesn't get it. -->
+<div class="announcement-overlay" id="announcementOverlay" style="display:none">
+  <div class="announcement-box" role="dialog" aria-modal="true" aria-labelledby="announcementTitle">
+    <div class="announcement-header">
+      <h3 id="announcementTitle"></h3>
+      <p class="hint">Sila baca pengumuman ini sebelum meneruskan.</p>
+    </div>
+    <div class="announcement-body" id="announcementMessage"></div>
+    <div class="announcement-footer">
+      <button type="button" id="announcementCloseBtn">Saya Sudah Baca</button>
+    </div>
+  </div>
+</div>
 <script src="app.js"></script>
 <script>
 async function load() {
@@ -122,7 +139,44 @@ async function load() {
     `<tr><td>${categoryBadge(cat.code, categories)}</td><td>${cat.label}</td><td>-</td></tr>`
   ).join('') || '<tr><td colspan="3" class="empty">Tiada data.</td></tr>';
 }
-requireLogin(['admin', 'school', 'official']).then((user) => { if (user) load(); });
+// v1.8: only Pengurus Sekolah gets the popup in v1 (RULES: Admin/Official
+// don't need it). sessionStorage (not localStorage) is deliberate - it's
+// scoped to this browser tab's lifetime, not persisted forever, so logging
+// out and back in (or a plain tab close) shows it again; only re-visiting/
+// refreshing the SAME still-open tab with the SAME announcement.updatedAt
+// suppresses it. A failed fetch here must never break the rest of the
+// dashboard - caught and silently skipped, same reasoning as the summary
+// fetch above degrading gracefully instead of crashing the page.
+async function checkAnnouncement(user) {
+  if (!user || user.role !== 'school') return;
+  let announcement;
+  try {
+    announcement = await fetchJSON('/api/announcement');
+  } catch (err) {
+    console.error('Announcement: failed to load, skipping popup:', err);
+    return;
+  }
+  if (!announcement.active) return;
+  if (sessionStorage.getItem('announcementSeen') === announcement.updatedAt) return;
+
+  document.getElementById('announcementTitle').textContent = announcement.title;
+  // textContent (not innerHTML) so the message can never be interpreted as
+  // HTML - white-space:pre-wrap (see style.css) renders the literal '\n'
+  // characters as line breaks without needing to inject any markup.
+  document.getElementById('announcementMessage').textContent = announcement.message;
+  document.getElementById('announcementOverlay').style.display = 'flex';
+
+  document.getElementById('announcementCloseBtn').addEventListener('click', () => {
+    sessionStorage.setItem('announcementSeen', announcement.updatedAt);
+    document.getElementById('announcementOverlay').style.display = 'none';
+  }, { once: true });
+}
+
+requireLogin(['admin', 'school', 'official']).then((user) => {
+  if (!user) return;
+  load();
+  checkAnnouncement(user);
+});
 </script>
 </body>
 </html>

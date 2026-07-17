@@ -131,7 +131,7 @@ form label {
   color: var(--text-secondary);
 }
 
-form input, form select, input[type="text"], input[type="number"], input[type="file"], select {
+form input, form select, form textarea, input[type="text"], input[type="number"], input[type="file"], select, textarea {
   width: 100%;
   padding: 0.6rem 0.75rem;
   margin-bottom: 1rem;
@@ -143,7 +143,9 @@ form input, form select, input[type="text"], input[type="number"], input[type="f
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-form input:focus, form select:focus, input:focus, select:focus {
+textarea { resize: vertical; min-height: 120px; }
+
+form input:focus, form select:focus, form textarea:focus, input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--navy);
   box-shadow: 0 0 0 3px rgba(29, 53, 87, 0.15);
@@ -204,6 +206,21 @@ button:disabled:hover { background: #b7bec7; transform: none; box-shadow: none; 
 
 button.danger { background: var(--red); box-shadow: 0 2px 10px rgba(214, 40, 40, 0.3); }
 button.danger:hover { background: #a81f1f; box-shadow: 0 4px 16px rgba(214, 40, 40, 0.4); }
+
+/* Outlined/tinted variant for a lower-emphasis action next to a primary
+   (navy) or danger (red) button - e.g. "Pilih Semua" / "Kosongkan Pilihan"
+   in public/register.html, next to "Padam Dipilih". Same pill shape/sizing
+   as the default button so it lines up in a row with the others. */
+button.secondary {
+  background: rgba(29, 53, 87, 0.07);
+  color: var(--navy);
+  border: 1px solid rgba(29, 53, 87, 0.25);
+  box-shadow: none;
+}
+button.secondary:hover {
+  background: rgba(29, 53, 87, 0.13);
+  box-shadow: none;
+}
 
 /* Usability patch: password visibility toggle, added by app.js's
    addPasswordToggle() - wraps a password <input> so the eye button can be
@@ -397,4 +414,64 @@ tbody tr:hover {
   .stat-box h3 { font-size: 1.5rem; }
   .user-badge { font-size: 0.72rem; }
   .app-footer { font-size: 0.72rem; padding: 1.25rem 1rem 1.5rem; }
+}
+
+/* v1.8: Pengumuman popup (public/index.html) - deliberately no click-
+   outside/ESC dismissal, only the explicit "Saya Sudah Baca" button closes it. */
+.announcement-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 27, 46, 0.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.announcement-box {
+  background: #fff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.announcement-header {
+  padding: 1.25rem 1.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.announcement-header h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.15rem;
+  color: var(--navy);
+}
+
+.announcement-header .hint { margin: 0; }
+
+.announcement-body {
+  padding: 1.25rem 1.5rem;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  flex: 1;
+}
+
+.announcement-footer {
+  padding: 1rem 1.5rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+
+.announcement-footer button { width: 100%; margin: 0; }
+
+@media (max-width: 480px) {
+  .announcement-box { max-height: 90vh; }
 }
