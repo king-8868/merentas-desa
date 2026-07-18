@@ -64,6 +64,7 @@
       <select id="filterSchool"><option value="">Semua Sekolah</option></select>
       <select id="filterCategory"><option value="">Semua Kategori</option></select>
       <button type="button" onclick="exportStudentsCSV()">Eksport Senarai (CSV)</button>
+      <button type="button" id="btnConsentForm" style="display:none" onclick="downloadConsentForm()">Muat Turun Borang Kebenaran</button>
     </div>
     <div class="bulk-actions" id="bulkActions" style="display:none">
       <span id="selectedCount" class="hint" style="margin:0">0 dipilih</span>
@@ -367,6 +368,58 @@ function exportStudentsCSV() {
   downloadCSV('senarai-peserta.csv', csv);
 }
 
+// v1.9.0 Document Generator. School Manager needs no schoolCode (server
+// forces their own - see routes/documents.js); Admin reuses the SAME
+// filterSchool picker already on this page rather than a second selector,
+// and must pick a specific school (no "generate for all schools" in v1).
+// Not fetchJSON() - the response body is a binary PDF, not JSON - so this
+// talks to fetch() directly and handles both outcomes itself.
+async function downloadConsentForm() {
+  const btn = document.getElementById('btnConsentForm');
+  if (btn.disabled) return; // guards against a double-click firing twice
+  const originalLabel = btn.textContent;
+
+  let url = '/api/documents/consent-form';
+  if (CURRENT_USER && CURRENT_USER.role === 'admin') {
+    const schoolCode = document.getElementById('filterSchool').value;
+    if (!schoolCode) {
+      alert('Sila pilih satu sekolah (penapis Sekolah di atas) sebelum menjana Borang Kebenaran.');
+      return;
+    }
+    url += `?schoolCode=${encodeURIComponent(schoolCode)}`;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sedang Menjana PDF...';
+  try {
+    const res = await fetch(url); // session cookie is sent automatically (same-origin)
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Gagal menjana dokumen (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    const disposition = res.headers.get('Content-Disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/);
+    const filename = match ? match[1] : 'Borang_Kebenaran.pdf';
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    // A failed generation must never break the rest of the registration
+    // page - just report it and let the admin/school manager keep working.
+    alert(`Ralat menjana Borang Kebenaran: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalLabel;
+  }
+}
+
 async function importCSV() {
   const fileInput = document.getElementById('csvFile');
   const resultEl = document.getElementById('importResult');
@@ -441,6 +494,10 @@ requireLogin(['admin', 'school', 'official']).then((user) => {
   if (user.role === 'official') {
     document.getElementById('registerCard').style.display = 'none';
     document.getElementById('importCard').style.display = 'none';
+  } else {
+    // v1.9.0 Document Generator - admin/school only, matches the server's
+    // 'student.consent-form' permission (see lib/config.js).
+    document.getElementById('btnConsentForm').style.display = '';
   }
   loadOptions().then(loadStudents);
 });

@@ -3,6 +3,99 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.9.0] - Document Generator (Penjana Dokumen)
+
+First document type: **Borang Perakuan Kesihatan Murid Menyertai Aktiviti
+Kokurikulum** (student health declaration + parent/guardian consent form).
+Deliberately narrow v1 scope by design - one document type, no template
+management center, no DOCX, no preview page, no multi-document batching
+beyond "all of one school's students in one file" - see the feature
+discussion for what was explicitly ruled out.
+
+### Added
+- **Document Generator / Penjana Dokumen** - automatically generates the
+  official 2-page consent form as a merged PDF (2 pages per student) for
+  every student registered at a school.
+- School Manager can download a PDF covering only their own school's
+  students; Admin can generate for any one specified school.
+- Auto-filled fields: activity name, activity level, activity date(s) +
+  venue, student full name, school name, and gender (derived from the v1.7
+  category split - never guessed for a pre-split "Tahap 1 (Data Lama)"
+  record, left blank instead).
+- New `event-config.json` fields: `venue`, `activityStartDate`,
+  `activityEndDate` (`lib/config.js`, `routes/system.js`,
+  `public/event-settings.html`). Auto-healed into an already-existing
+  `event-config.json` on startup (`mergeEventConfig()` in
+  `lib/init-data.js`, same pattern as the v1.6.2 permission merge) -
+  `titleLine1`/`titleLine2`/`year` are never touched or reset.
+- New `student.consent-form` permission (admin, school - Official
+  excluded), picked up automatically by the existing startup
+  permission-merge, same as every permission key added since v1.6.2.
+- New `pdf-lib` dependency - the first real npm dependency this project has
+  ever had. `templates/borang-pengakuan.pdf` is the official form, stored
+  read-only outside both `data/` (not runtime state) and `public/` (never
+  reachable by a direct URL); loaded into memory and overlaid with text via
+  calibrated coordinates - never re-drawn from scratch, never modified on
+  disk.
+- `GET /api/documents/consent-form` (`routes/documents.js`) - streams the
+  generated PDF straight back as the response body with
+  `Cache-Control: private, no-store, max-age=0` / `Pragma: no-cache` /
+  `Expires: 0`, and a sanitized `Content-Disposition` filename
+  (`Borang_Kebenaran_[SchoolCode]_[EventName].pdf`).
+- `document.consent-form.generate` audit log entry on every generation
+  attempt (success or rejected) - actor, role, school code, student count,
+  timestamp - never the student roster itself.
+- "Muat Turun Borang Kebenaran" button on `public/register.html`
+  (Pendaftaran Peserta), next to "Eksport Senarai (CSV)" - visible to
+  admin/school only, reuses the page's existing school filter for Admin
+  rather than adding a second picker, shows a loading state, and guards
+  against double-submission.
+
+### Security / Privacy
+- The PDF is built entirely in memory and streamed directly as the
+  response - nothing is ever written to a temporary file, nothing is kept
+  on the server after the request completes, nothing is served from
+  `/public`.
+- School Manager's school scope is decided entirely server-side from the
+  session (`user.schoolCode`) - a `?schoolCode=` query parameter is
+  silently ignored for that role, never trusted, same pattern as
+  `GET /api/students` and the `[1.7.1]` bulk-delete endpoint.
+- Text containing a character the standard font can't encode (e.g. Chinese)
+  is detected *before* anything is drawn and rejected with a clear Malay
+  error (`422`) - never a server crash, never a silently garbled PDF.
+- Audit log entries never include the student roster, IC numbers, or
+  health/parent data - only counts and metadata.
+- The template file is not reachable via any public URL (outside
+  `PUBLIC_DIR` entirely) and is never written to.
+
+### Changed
+- `public/event-settings.html` - new Tempat / Tarikh Mula / Tarikh Tamat
+  fields on the existing Tajuk & Tahun Acara form.
+- `public/register.html` - new "Muat Turun Borang Kebenaran" button.
+- `.gitignore` - added `/node_modules/` (first real dependency) and
+  `/data.snapshot-*/` (ad-hoc local acceptance-testing snapshots, which
+  hold the same real password hashes/student data as `/data` but aren't
+  nested inside it, so the existing `/data/**` rule didn't already cover
+  them - found and fixed during this release's manual acceptance pass).
+
+### Verified
+- Coordinates calibrated directly against the template PDF's own vector
+  geometry (table border / underline positions), confirmed by rendering
+  generated output to images and visually inspecting both pages.
+- 22 backend test items covering every documented status code (401/403/
+  200/404/400/422), the school-scoping bypass attempt (byte-for-byte
+  identical output whether or not a foreign `schoolCode` is supplied),
+  page count = student count x 2, per-student content isolation (verified
+  by parsing the generated PDF's actual text, not just code review), gender
+  correctness including the legacy-blank case, an unsupported-character
+  rejection that leaves the server running, no-store headers, filename
+  sanitization, audit log content, and template file integrity (hash
+  unchanged) - plus a 12-item regression pass across Registration, CSV
+  Export, Login/RBAC, Dashboard, Race/Bib (`[1.7]`), Scoring, Bulk Delete
+  RBAC (`[1.7.1]`), and Announcement (`[1.8.0]`) - all passed, no
+  regressions found in either isolated automated testing or the final
+  manual acceptance pass (real browser, both roles, actual PDF printout).
+
 ## [1.8.0] - Announcement Popup
 
 Adds a single, simple "current announcement" - Admin edits it, School

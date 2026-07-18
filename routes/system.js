@@ -84,7 +84,28 @@ function register(router) {
       return sendJSON(res, 400, { error: 'Tahun mesti nombor sah (2000-2100)' });
     }
 
-    const config = { titleLine1, titleLine2, year };
+    // v1.9.0: venue/activityStartDate/activityEndDate for the Document
+    // Generator (routes/documents.js). All three are optional here (an
+    // Admin can still save the title/year before venue/dates are decided)
+    // - it's routes/documents.js that refuses to generate a PDF while any
+    // of them is still empty, not this save endpoint. <input type="date">
+    // always sends YYYY-MM-DD, so that's the one format accepted when a
+    // value is actually provided.
+    const venue = String(body.venue || '').trim();
+    const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+    const activityStartDate = String(body.activityStartDate || '').trim();
+    const activityEndDate = String(body.activityEndDate || '').trim();
+    if (activityStartDate && !isoDatePattern.test(activityStartDate)) {
+      return sendJSON(res, 400, { error: 'Tarikh mula tidak sah (format YYYY-MM-DD)' });
+    }
+    if (activityEndDate && !isoDatePattern.test(activityEndDate)) {
+      return sendJSON(res, 400, { error: 'Tarikh tamat tidak sah (format YYYY-MM-DD)' });
+    }
+    if (activityStartDate && activityEndDate && activityEndDate < activityStartDate) {
+      return sendJSON(res, 400, { error: 'Tarikh tamat tidak boleh lebih awal daripada tarikh mula' });
+    }
+
+    const config = { titleLine1, titleLine2, year, venue, activityStartDate, activityEndDate };
     await store.update(EVENT_CONFIG_FILE, SEED_EVENT_CONFIG, () => ({ data: config, result: null }));
     logAudit({
       actor: user.username,

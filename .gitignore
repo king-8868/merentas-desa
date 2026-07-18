@@ -12,6 +12,19 @@
 # this was missed when /backup was introduced and is fixed here.
 /backup/**
 
+# v1.9.0 acceptance testing: ad-hoc `data.snapshot-*` folders (plain `cp -r
+# data data.snapshot-...` copies made before/after a manual test pass) hold
+# the exact same real password hashes/student data as /data itself, but
+# `/data/**` above doesn't catch them since they're sibling directories, not
+# nested inside data/. Same reasoning, same treatment.
+/data.snapshot-*/
+
+# v1.9.0: first real npm dependency this project has ever had (pdf-lib).
+# node_modules is installed by `npm install` from package-lock.json - never
+# hand-edited, never something to version - so it's excluded the same way
+# every other Node project excludes it.
+/node_modules/
+
 # OS junk
 .DS_Store
 

@@ -35,6 +35,7 @@ require('./routes/audit').register(router);
 require('./routes/users').register(router);
 require('./routes/system').register(router);
 require('./routes/announcement').register(router);
+require('./routes/documents').register(router);
 
 const server = http.createServer(async (req, res) => {
   let urlObj;

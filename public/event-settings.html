@@ -26,6 +26,19 @@
       <input type="text" id="titleLine2">
       <label>Tahun</label>
       <input type="number" id="year" min="2000" max="2100" required style="max-width:160px;">
+      <label>Tempat</label>
+      <input type="text" id="venue" placeholder="cth: Padang SJKC Tung Kiew">
+      <div class="form-row">
+        <div>
+          <label>Tarikh Mula</label>
+          <input type="date" id="activityStartDate">
+        </div>
+        <div>
+          <label>Tarikh Tamat</label>
+          <input type="date" id="activityEndDate">
+        </div>
+      </div>
+      <p class="hint">Tempat dan tarikh di atas diperlukan untuk menjana Borang Kebenaran (Pendaftaran Peserta). Jika sama, tetapkan Tarikh Mula dan Tarikh Tamat kepada tarikh yang sama.</p>
       <button type="submit">Simpan</button>
     </form>
     <p id="titleMsg"></p>
@@ -65,6 +78,9 @@ async function loadTitle() {
   document.getElementById('titleLine1').value = config.titleLine1;
   document.getElementById('titleLine2').value = config.titleLine2 || '';
   document.getElementById('year').value = config.year;
+  document.getElementById('venue').value = config.venue || '';
+  document.getElementById('activityStartDate').value = config.activityStartDate || '';
+  document.getElementById('activityEndDate').value = config.activityEndDate || '';
 }
 
 async function loadLifecycle() {
@@ -98,6 +114,9 @@ document.getElementById('titleForm').addEventListener('submit', async (e) => {
         titleLine1: document.getElementById('titleLine1').value,
         titleLine2: document.getElementById('titleLine2').value,
         year: Number(document.getElementById('year').value),
+        venue: document.getElementById('venue').value,
+        activityStartDate: document.getElementById('activityStartDate').value,
+        activityEndDate: document.getElementById('activityEndDate').value,
       }),
     });
     msg.textContent = 'Tajuk acara berjaya dikemaskini.';
