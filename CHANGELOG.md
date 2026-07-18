@@ -3,6 +3,42 @@
 All notable changes to the Kejohanan Merentas Desa 2026 system are documented
 in this file.
 
+## [1.9.1] - Pengurus Sekolah Manual (Panduan Pengguna)
+
+Standalone, publicly-readable trilingual (Bahasa Malaysia / English / 中文)
+HTML user guide for School Managers, covering the full workflow from login
+through downloading and printing the parent consent form. Zero-dependency,
+zero-write: static page only, no framework, no API calls, no account data.
+
+### Added
+
+- Pengurus Sekolah 三语 HTML 使用手册 (`public/manual-school.html`)
+- Bahasa Malaysia / English / 中文 language switcher (`public/manual-school.js`)
+- 登录页 (`login.html`) 加入手册入口链接
+- School Manager 导航加入 "Panduan" 链接（Admin/Official 导航不受影响）
+- 活动海报（`public/assets/manual/merentas-desa-2026.png`），Hero 区域展示
+- Sticky side navigation with scroll spy
+- Reading progress bar
+- FAQ accordion (8 items, `aria-expanded`/`aria-controls` wired)
+- Interactive final checklist (localStorage-backed, browser-local only)
+- Copy system link button with toast confirmation
+- Print guide button
+- Responsive mobile layout (hamburger nav, card-based tables, no horizontal overflow)
+- A4 print mode (`@media print`: white background, expanded FAQ, hidden nav/floating controls, full URLs shown, poster/step-cards protected from mid-break)
+- `prefers-reduced-motion` support throughout (animations, transitions, smooth scroll)
+
+### Changed
+
+- 静态资源 MIME 类型表 (`lib/http-helpers.js`) 新增 `.png` → `image/png`（此前项目从未提供 PNG 静态资源）
+
+### Security / Privacy
+
+- 手册不读取用户资料，不读取 `users.json`
+- 不调用任何认证 API（`/api/auth/*`）或写入型 API
+- 不显示真实账号、真实密码或真实学生资料
+- 只使用 `TK` / `TK2026` 作为登录格式示例，明确标注为格式说明而非真实账号
+- 不含第三方追踪、广告或外部 CDN 依赖
+
 ## [1.9.0] - Document Generator (Penjana Dokumen)
 
 First document type: **Borang Perakuan Kesihatan Murid Menyertai Aktiviti

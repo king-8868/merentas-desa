@@ -102,6 +102,10 @@ const NAV_ITEMS = [
   { href: 'system-info.html', label: 'Maklumat Sistem' },
   { href: 'event-settings.html', label: 'Tetapan Acara' },
   { href: 'announcement.html', label: 'Pengumuman' },
+  // v1.9.x: standalone, publicly-readable user manual for School Managers
+  // only (see public/manual-school.html) - deliberately not added to the
+  // admin/official visibility lists below so their nav bar is unaffected.
+  { href: 'manual-school.html', label: 'Panduan' },
 ];
 
 // Which nav links each role gets to see. Backend routes are the real
@@ -110,7 +114,7 @@ const NAV_ITEMS = [
 // leaderboard.html renders without requiring a session).
 const NAV_VISIBILITY = {
   admin: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html', 'schools.html', 'scoring.html', 'users.html', 'system-info.html', 'event-settings.html', 'announcement.html'],
-  school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html'],
+  school: ['index.html', 'register.html', 'rankings.html', 'leaderboard.html', 'manual-school.html'],
   official: ['index.html', 'register.html', 'checkin.html', 'race-control.html', 'record.html', 'rankings.html', 'leaderboard.html'],
   public: ['leaderboard.html'],
 };

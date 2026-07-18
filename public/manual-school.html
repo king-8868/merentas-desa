@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PANDUAN PENGGUNA PENGURUS SEKOLAH · 学校管理员使用手册 · Merentas Desa 2026</title>
+<meta name="description" content="Panduan penggunaan sistem untuk Pengurus Sekolah · 学校管理员使用手册 · School Manager user guide for Kejohanan Merentas Desa 2026.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="manual-school.css">
+</head>
+<body data-lang="zh">
+
+<a class="skip-link" href="#mainContent">
+  <span data-lang-block="zh">跳到主要内容</span>
+  <span data-lang-block="en">Skip to main content</span>
+  <span data-lang-block="ms">Langkau ke kandungan utama</span>
+</a>
+
+<div id="readingProgress" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="topbar-brand" href="#hero">
+    <span class="dot" aria-hidden="true"></span>
+    <span data-lang-block="zh">Merentas Desa 2026 · 使用手册</span>
+    <span data-lang-block="en">Merentas Desa 2026 · User Guide</span>
+    <span data-lang-block="ms">Merentas Desa 2026 · Panduan</span>
+  </a>
+  <div class="topbar-actions">
+    <div class="langbar" role="group" aria-label="Language / 语言 / Bahasa">
+      <button type="button" id="btn-lang-zh" class="active" aria-pressed="true" onclick="setLang('zh')">中文</button>
+      <button type="button" id="btn-lang-en" aria-pressed="false" onclick="setLang('en')">English</button>
+      <button type="button" id="btn-lang-ms" aria-pressed="false" onclick="setLang('ms')">Bahasa Malaysia</button>
+    </div>
+    <button type="button" id="navToggle" class="navToggle" aria-label="打开目录菜单 / Open contents menu / Buka menu kandungan" aria-expanded="false" aria-controls="sideNav">☰</button>
+  </div>
+</header>
+
+<div class="nav-backdrop" id="navBackdrop"></div>
+
+<div class="layout">
+  <aside class="side-nav" id="sideNav" aria-label="Kandungan / 目录 / Kandungan Panduan">
+    <h2>
+      <span data-lang-block="zh">目录</span>
+      <span data-lang-block="en">Contents</span>
+      <span data-lang-block="ms">Kandungan</span>
+    </h2>
+    <ul>
+      <li><a href="#ringkasan"><span data-lang-block="zh">流程总览</span><span data-lang-block="en">Process Overview</span><span data-lang-block="ms">Ringkasan Proses</span></a></li>
+      <li><a href="#sebelum-bermula"><span data-lang-block="zh">开始前准备</span><span data-lang-block="en">Before You Start</span><span data-lang-block="ms">Sebelum Bermula</span></a></li>
+      <li><a href="#langkah-1"><span data-lang-block="zh">步骤一：登录</span><span data-lang-block="en">Step 1: Log In</span><span data-lang-block="ms">Langkah 1: Log Masuk</span></a></li>
+      <li><a href="#langkah-2"><span data-lang-block="zh">步骤二：通告</span><span data-lang-block="en">Step 2: Announcement</span><span data-lang-block="ms">Langkah 2: Pengumuman</span></a></li>
+      <li><a href="#langkah-3"><span data-lang-block="zh">步骤三：报名</span><span data-lang-block="en">Step 3: Register Students</span><span data-lang-block="ms">Langkah 3: Daftar Peserta</span></a></li>
+      <li><a href="#langkah-4"><span data-lang-block="zh">步骤四：检查与更正</span><span data-lang-block="en">Step 4: Review &amp; Update</span><span data-lang-block="ms">Langkah 4: Semak &amp; Kemas Kini</span></a></li>
+      <li><a href="#langkah-5"><span data-lang-block="zh">步骤五：导出名单</span><span data-lang-block="en">Step 5: Export CSV</span><span data-lang-block="ms">Langkah 5: Eksport CSV</span></a></li>
+      <li><a href="#langkah-6"><span data-lang-block="zh">步骤六：家长同意书</span><span data-lang-block="en">Step 6: Consent Form</span><span data-lang-block="ms">Langkah 6: Borang Kebenaran</span></a></li>
+      <li><a href="#faq"><span data-lang-block="zh">常见问题</span><span data-lang-block="en">FAQ</span><span data-lang-block="ms">Masalah Lazim</span></a></li>
+      <li><a href="#peringatan"><span data-lang-block="zh">重要提醒</span><span data-lang-block="en">Important Reminders</span><span data-lang-block="ms">Peringatan Penting</span></a></li>
+      <li><a href="#checklist"><span data-lang-block="zh">最终检查清单</span><span data-lang-block="en">Final Checklist</span><span data-lang-block="ms">Senarai Semak Akhir</span></a></li>
+    </ul>
+  </aside>
+
+  <main id="mainContent">
+
+    <!-- A. Hero -->
+    <section class="hero" id="hero">
+      <div class="hero-spot" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <div class="hero-text">
+          <div class="eyebrow">
+            <span data-lang-block="zh">学校管理员专用</span>
+            <span data-lang-block="en">For School Managers</span>
+            <span data-lang-block="ms">Untuk Pengurus Sekolah</span>
+          </div>
+          <h1 class="hero-title">
+            <span data-lang-block="zh">使用手册 · 学校管理员</span>
+            <span data-lang-block="en">User Guide · School Manager</span>
+            <span data-lang-block="ms">PANDUAN PENGGUNA<br>PENGURUS SEKOLAH</span>
+          </h1>
+          <p class="hero-subtitle">
+            <span data-lang-block="zh">2026年国庆日跨校越野赛管理系统</span>
+            <span data-lang-block="en">Kejohanan Merentas Desa 2026 Management System</span>
+            <span data-lang-block="ms">Sistem Pengurusan Kejohanan Merentas Desa 2026</span>
+          </p>
+          <div class="badges">
+            <span class="badge"><span class="swatch"></span>
+              <span data-lang-block="zh">系统版本 1.9.0</span>
+              <span data-lang-block="en">System Version 1.9.0</span>
+              <span data-lang-block="ms">Sistem Version 1.9.0</span>
+            </span>
+            <span class="badge"><span class="swatch"></span>
+              <span data-lang-block="zh">逐步图文指南</span>
+              <span data-lang-block="en">Step-by-Step Guide</span>
+              <span data-lang-block="ms">Panduan Langkah Demi Langkah</span>
+            </span>
+            <span class="badge"><span class="swatch"></span>
+              <span data-lang-block="zh">手机与电脑皆适用</span>
+              <span data-lang-block="en">Works on Phone &amp; Computer</span>
+              <span data-lang-block="ms">Sesuai untuk Telefon dan Komputer</span>
+            </span>
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#ringkasan">
+              <span data-lang-block="zh">开始阅读</span>
+              <span data-lang-block="en">Start Reading</span>
+              <span data-lang-block="ms">Mula Membaca</span>
+            </a>
+            <a class="btn btn-gold" href="https://merentas-desa-production.up.railway.app" target="_blank" rel="noopener">
+              <span data-lang-block="zh">打开报名系统</span>
+              <span data-lang-block="en">Open Registration System</span>
+              <span data-lang-block="ms">Buka Sistem Pendaftaran</span>
+            </a>
+            <button type="button" class="btn btn-ghost" data-action="copy-url">
+              <span data-lang-block="zh">复制链接</span>
+              <span data-lang-block="en">Copy Link</span>
+              <span data-lang-block="ms">Salin Pautan</span>
+            </button>
+          </div>
+        </div>
+        <figure class="hero-poster">
+          <img src="assets/manual/merentas-desa-2026.png"
+               data-alt-zh="Kejohanan Merentas Desa 2026 活动官方海报"
+               data-alt-en="Official event poster for Kejohanan Merentas Desa 2026"
+               data-alt-ms="Poster rasmi Kejohanan Merentas Desa 2026"
+               alt="Kejohanan Merentas Desa 2026 活动官方海报"
+               loading="eager">
+          <figcaption>
+            <span data-lang-block="zh">活动官方海报</span>
+            <span data-lang-block="en">Official event poster</span>
+            <span data-lang-block="ms">Poster rasmi acara</span>
+          </figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- B. Ringkasan Proses -->
+    <section id="ringkasan" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">A</span>
+          <span data-lang-block="zh">流程总览</span>
+          <span data-lang-block="en">Process Overview</span>
+          <span data-lang-block="ms">Ringkasan Proses</span>
+        </h2>
+        <p>
+          <span data-lang-block="zh">整体流程只有六步，从登录到收回家长签名文件。</span>
+          <span data-lang-block="en">The whole process is six steps, from logging in to collecting the signed parent consent forms.</span>
+          <span data-lang-block="ms">Keseluruhan proses hanya enam langkah, dari log masuk sehingga mengumpul borang yang ditandatangani ibu bapa.</span>
+        </p>
+        <div class="process-strip">
+          <span class="process-step">
+            <span data-lang-block="zh">登录</span><span data-lang-block="en">Log In</span><span data-lang-block="ms">Log Masuk</span>
+          </span>
+          <span class="process-arrow" aria-hidden="true">→</span>
+          <span class="process-step">
+            <span data-lang-block="zh">报名参赛者</span><span data-lang-block="en">Register Students</span><span data-lang-block="ms">Daftar Peserta</span>
+          </span>
+          <span class="process-arrow" aria-hidden="true">→</span>
+          <span class="process-step">
+            <span data-lang-block="zh">检查资料</span><span data-lang-block="en">Review Info</span><span data-lang-block="ms">Semak Maklumat</span>
+          </span>
+          <span class="process-arrow" aria-hidden="true">→</span>
+          <span class="process-step">
+            <span data-lang-block="zh">导出名单</span><span data-lang-block="en">Export List</span><span data-lang-block="ms">Eksport Senarai</span>
+          </span>
+          <span class="process-arrow" aria-hidden="true">→</span>
+          <span class="process-step">
+            <span data-lang-block="zh">下载表格</span><span data-lang-block="en">Download Form</span><span data-lang-block="ms">Muat Turun Borang</span>
+          </span>
+          <span class="process-arrow" aria-hidden="true">→</span>
+          <span class="process-step">
+            <span data-lang-block="zh">打印并收回</span><span data-lang-block="en">Print &amp; Collect</span><span data-lang-block="ms">Cetak dan Kumpul</span>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- C. Sebelum Bermula -->
+    <section id="sebelum-bermula" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">B</span>
+          <span data-lang-block="zh">开始前准备</span>
+          <span data-lang-block="en">Before You Start</span>
+          <span data-lang-block="ms">Sebelum Bermula</span>
+        </h2>
+        <p>
+          <span data-lang-block="zh">开始报名之前，请老师先准备好以下资料：</span>
+          <span data-lang-block="en">Before you start registering students, please have the following ready:</span>
+          <span data-lang-block="ms">Sebelum mula mendaftar, sila sediakan maklumat berikut:</span>
+        </p>
+        <div class="info-grid">
+          <div class="info-item"><span class="icon" aria-hidden="true">🏫</span>
+            <span data-lang-block="zh">学校账号（Kod Sekolah）</span>
+            <span data-lang-block="en">School ID (Kod Sekolah)</span>
+            <span data-lang-block="ms">ID Sekolah</span>
+          </div>
+          <div class="info-item"><span class="icon" aria-hidden="true">🔑</span>
+            <span data-lang-block="zh">学校密码</span>
+            <span data-lang-block="en">School password</span>
+            <span data-lang-block="ms">Kata laluan sekolah</span>
+          </div>
+          <div class="info-item"><span class="icon" aria-hidden="true">📝</span>
+            <span data-lang-block="zh">学生全名</span>
+            <span data-lang-block="en">Student's full name</span>
+            <span data-lang-block="ms">Nama penuh murid</span>
+          </div>
+          <div class="info-item"><span class="icon" aria-hidden="true">🎓</span>
+            <span data-lang-block="zh">就读阶段（Tahap 1 / Tahap 2）</span>
+            <span data-lang-block="en">Level (Tahap 1 / Tahap 2)</span>
+            <span data-lang-block="ms">Tahap</span>
+          </div>
+          <div class="info-item"><span class="icon" aria-hidden="true">⚧</span>
+            <span data-lang-block="zh">性别</span>
+            <span data-lang-block="en">Gender</span>
+            <span data-lang-block="ms">Jantina</span>
+          </div>
+        </div>
+
+        <h3>
+          <span data-lang-block="zh">登录账号示例</span>
+          <span data-lang-block="en">Login Example</span>
+          <span data-lang-block="ms">Contoh Log Masuk</span>
+        </h3>
+        <p>
+          <span data-lang-block="zh">账号使用学校代码的<strong>大写字母</strong>；初始密码是同样的学校代码，再加上 <strong>2026</strong>。</span>
+          <span data-lang-block="en">The username is your school code in <strong>UPPERCASE</strong> letters. The initial password is the same school code followed by <strong>2026</strong>.</span>
+          <span data-lang-block="ms">ID pengguna ialah kod sekolah dalam <strong>huruf besar</strong>. Kata laluan awal menggunakan kod sekolah yang sama, diikuti nombor <strong>2026</strong>.</span>
+        </p>
+        <div class="login-sample">
+          <div class="field">
+            <div class="label">
+              <span data-lang-block="zh">学校名称</span><span data-lang-block="en">School Name</span><span data-lang-block="ms">Nama Sekolah</span>
+            </div>
+            <div class="value" style="font-size:0.95rem">SJKC TUNG KIEW</div>
+          </div>
+          <div class="field">
+            <div class="label">
+              <span data-lang-block="zh">账号 (ID Pengguna)</span><span data-lang-block="en">Username (ID Pengguna)</span><span data-lang-block="ms">ID Pengguna</span>
+            </div>
+            <div class="value">TK</div>
+          </div>
+          <div class="field">
+            <div class="label">
+              <span data-lang-block="zh">初始密码 (Kata Laluan)</span><span data-lang-block="en">Initial Password (Kata Laluan)</span><span data-lang-block="ms">Kata Laluan</span>
+            </div>
+            <div class="value">TK2026</div>
+          </div>
+        </div>
+        <div class="callout callout-info">
+          <span class="callout-icon" aria-hidden="true">ℹ️</span>
+          <span data-lang-block="zh">此示例仅供参考格式说明，<strong>并非</strong>你学校的实际账号密码 —— 每所学校的实际账号请向筹委会（Urus Setia）索取。</span>
+          <span data-lang-block="en">This example only illustrates the <em>format</em> — it is <strong>not</strong> your school's real login. Please obtain your actual username/password from the organizing committee (Urus Setia).</span>
+          <span data-lang-block="ms">Contoh ini hanya untuk menunjukkan <em>format</em> — <strong>bukan</strong> log masuk sebenar sekolah anda. Sila dapatkan ID dan kata laluan sebenar daripada Urus Setia.</span>
+        </div>
+
+        <h3>
+          <span data-lang-block="zh">安全提醒</span>
+          <span data-lang-block="en">Security Reminders</span>
+          <span data-lang-block="ms">Peringatan Keselamatan</span>
+        </h3>
+        <ul class="security-list">
+          <li>
+            <span data-lang-block="zh">请确保学校代码以<strong>大写字母</strong>输入。</span>
+            <span data-lang-block="en">Make sure the school code is typed in <strong>UPPERCASE</strong> letters.</span>
+            <span data-lang-block="ms">Pastikan kod sekolah ditaip menggunakan <strong>HURUF BESAR</strong>.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">请勿将密码分享给无关人士。</span>
+            <span data-lang-block="en">Do not share the password with anyone who is not involved.</span>
+            <span data-lang-block="ms">Jangan kongsikan kata laluan kepada pihak yang tidak berkaitan.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">请确保账号和密码前后没有多余空格。</span>
+            <span data-lang-block="en">Make sure there is no extra space before or after the username and password.</span>
+            <span data-lang-block="ms">Pastikan tiada ruang kosong sebelum atau selepas ID dan kata laluan.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">若无法登录，请先重新检查资料，再联系筹委会（Urus Setia）。</span>
+            <span data-lang-block="en">If login fails, double-check the details first before contacting the organizing committee (Urus Setia).</span>
+            <span data-lang-block="ms">Jika gagal log masuk, semak semula maklumat sebelum menghubungi Urus Setia.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- D. Langkah 1: Log Masuk -->
+    <section id="langkah-1" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">1</span>
+          <span data-lang-block="zh">登录系统</span>
+          <span data-lang-block="en">Log In</span>
+          <span data-lang-block="ms">Log Masuk</span>
+        </h2>
+        <ol class="step-list">
+          <li><span class="step-text">
+            <span data-lang-block="zh">打开网址：</span><span data-lang-block="en">Open this link:</span><span data-lang-block="ms">Buka:</span>
+            <br><code>https://merentas-desa-production.up.railway.app</code>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">在 <strong>Nama Pengguna</strong> 输入学校账号（ID sekolah）。</span>
+            <span data-lang-block="en">Enter your school ID in <strong>Nama Pengguna</strong>.</span>
+            <span data-lang-block="ms">Masukkan ID sekolah pada <strong>Nama Pengguna</strong>.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">在 <strong>Kata Laluan</strong> 输入密码。</span>
+            <span data-lang-block="en">Enter the password in <strong>Kata Laluan</strong>.</span>
+            <span data-lang-block="ms">Masukkan kata laluan pada <strong>Kata Laluan</strong>.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">确认学校代码是<strong>大写字母</strong>。</span>
+            <span data-lang-block="en">Make sure the school code is in <strong>UPPERCASE</strong>.</span>
+            <span data-lang-block="ms">Pastikan kod sekolah menggunakan huruf besar.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">点击 <strong>Log Masuk</strong> 按钮。</span>
+            <span data-lang-block="en">Press the <strong>Log Masuk</strong> button.</span>
+            <span data-lang-block="ms">Tekan butang <strong>Log Masuk</strong>.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">登录成功后，系统会进入首页。</span>
+            <span data-lang-block="en">Once logged in successfully, you will land on the home page.</span>
+            <span data-lang-block="ms">Selepas berjaya log masuk, pengguna akan masuk ke halaman utama.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">若首页弹出通告窗口，请先阅读内容，再点击 <strong>Saya Sudah Baca</strong>。</span>
+            <span data-lang-block="en">If an announcement pop-up appears, please read it, then press <strong>Saya Sudah Baca</strong>.</span>
+            <span data-lang-block="ms">Jika pengumuman dipaparkan, baca dan tekan <strong>Saya Sudah Baca</strong>.</span>
+          </span></li>
+        </ol>
+
+        <h3>
+          <span data-lang-block="zh">常见登录错误</span>
+          <span data-lang-block="en">Common Login Mistakes</span>
+          <span data-lang-block="ms">Kesilapan Log Masuk Biasa</span>
+        </h3>
+        <table class="data-table">
+          <thead><tr>
+            <th><span data-lang-block="zh">错误</span><span data-lang-block="en">Mistake</span><span data-lang-block="ms">Kesilapan</span></th>
+          </tr></thead>
+          <tbody>
+            <tr><td data-label="#"><span data-lang-block="zh">使用小写字母输入账号</span><span data-lang-block="en">Typing the username in lowercase</span><span data-lang-block="ms">Menggunakan huruf kecil</span></td></tr>
+            <tr><td data-label="#"><span data-lang-block="zh">账号前后有多余空格</span><span data-lang-block="en">Extra space before/after the ID</span><span data-lang-block="ms">ID mempunyai ruang kosong di hadapan/belakang</span></td></tr>
+            <tr><td data-label="#"><span data-lang-block="zh">密码前后有多余空格</span><span data-lang-block="en">Extra space before/after the password</span><span data-lang-block="ms">Kata laluan mempunyai ruang kosong</span></td></tr>
+            <tr><td data-label="#"><span data-lang-block="zh">把学校全名当成账号输入</span><span data-lang-block="en">Typing the full school name instead of the ID</span><span data-lang-block="ms">Menaip nama penuh sekolah sebagai ID</span></td></tr>
+            <tr><td data-label="#"><span data-lang-block="zh">密码年份输入错误</span><span data-lang-block="en">Wrong year typed in the password</span><span data-lang-block="ms">Nombor tahun kata laluan tersalah</span></td></tr>
+            <tr><td data-label="#"><span data-lang-block="zh">使用了别的学校的账号</span><span data-lang-block="en">Using another school's account</span><span data-lang-block="ms">Menggunakan ID sekolah lain</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- E. Langkah 2: Pengumuman -->
+    <section id="langkah-2" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">2</span>
+          <span data-lang-block="zh">阅读通告</span>
+          <span data-lang-block="en">Announcement</span>
+          <span data-lang-block="ms">Pengumuman</span>
+        </h2>
+        <ul class="security-list">
+          <li>
+            <span data-lang-block="zh">登录后，首页可能会弹出主办方的通告窗口。</span>
+            <span data-lang-block="en">After logging in, the home page may show a pop-up announcement from the organizer.</span>
+            <span data-lang-block="ms">Selepas log masuk, halaman utama mungkin memaparkan pengumuman.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">请仔细阅读通告内容。</span>
+            <span data-lang-block="en">Please read the content carefully.</span>
+            <span data-lang-block="ms">Baca kandungan dengan teliti.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">阅读完毕后点击 <strong>Saya Sudah Baca</strong> 关闭窗口。</span>
+            <span data-lang-block="en">After reading, click <strong>Saya Sudah Baca</strong> to close the pop-up.</span>
+            <span data-lang-block="ms">Klik <strong>Saya Sudah Baca</strong> untuk tutup.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">重新登录时，同一则通告可能会再次出现，这是正常现象。</span>
+            <span data-lang-block="en">The same announcement may appear again the next time you log in — this is expected behavior.</span>
+            <span data-lang-block="ms">Pengumuman sama mungkin dipaparkan semula apabila log masuk semula — ini adalah normal.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- F. Langkah 3: Daftar Peserta -->
+    <section id="langkah-3" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">3</span>
+          <span data-lang-block="zh">报名参赛者</span>
+          <span data-lang-block="en">Register Students</span>
+          <span data-lang-block="ms">Daftar Peserta</span>
+        </h2>
+        <p>
+          <span data-lang-block="zh">前往 <strong>Pendaftaran Peserta</strong> 页面，填写以下字段：</span>
+          <span data-lang-block="en">Go to the <strong>Pendaftaran Peserta</strong> page and fill in the following fields:</span>
+          <span data-lang-block="ms">Pergi ke halaman <strong>Pendaftaran Peserta</strong> dan isikan medan berikut:</span>
+        </p>
+        <table class="data-table">
+          <thead><tr>
+            <th><span data-lang-block="zh">系统字段</span><span data-lang-block="en">System Field</span><span data-lang-block="ms">Medan Sistem</span></th>
+            <th><span data-lang-block="zh">说明</span><span data-lang-block="en">Description</span><span data-lang-block="ms">Penerangan</span></th>
+          </tr></thead>
+          <tbody>
+            <tr>
+              <td data-label="Field"><code>Nama Peserta</code></td>
+              <td data-label="Desc"><span data-lang-block="zh">学生全名</span><span data-lang-block="en">Student's full name</span><span data-lang-block="ms">Nama penuh murid</span></td>
+            </tr>
+            <tr>
+              <td data-label="Field"><code>Tahap</code></td>
+              <td data-label="Desc"><span data-lang-block="zh">就读阶段：Tahap 1 或 Tahap 2</span><span data-lang-block="en">School level: Tahap 1 or Tahap 2</span><span data-lang-block="ms">Tahap 1 atau Tahap 2</span></td>
+            </tr>
+            <tr>
+              <td data-label="Field"><code>Jantina</code></td>
+              <td data-label="Desc"><span data-lang-block="zh">性别：Lelaki（男）或 Perempuan（女）</span><span data-lang-block="en">Gender: Lelaki (male) or Perempuan (female)</span><span data-lang-block="ms">Lelaki atau Perempuan</span></td>
+            </tr>
+          </tbody>
+        </table>
+        <ul class="security-list">
+          <li>
+            <span data-lang-block="zh"><strong>Sekolah</strong>（学校）会由登录账号自动锁定，学校管理员无法选择其他学校。</span>
+            <span data-lang-block="en">The <strong>Sekolah</strong> (School) field is automatically locked to your login account — a School Manager cannot pick another school.</span>
+            <span data-lang-block="ms"><strong>Sekolah</strong> dikunci automatik mengikut akaun log masuk — Pengurus Sekolah tidak boleh memilih sekolah lain.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">系统会根据 Tahap + Jantina 自动决定 <strong>Kategori</strong>（组别）。</span>
+            <span data-lang-block="en">The system automatically determines the <strong>Kategori</strong> (category) from Tahap + Jantina.</span>
+            <span data-lang-block="ms">Sistem menentukan <strong>Kategori</strong> secara automatik daripada Tahap + Jantina.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">系统会自动分配 <strong>No. Peserta</strong>（参赛编号 / Bib），无需自行设定。</span>
+            <span data-lang-block="en">The system automatically assigns the <strong>No. Peserta</strong> (Bib number) — no need to set it yourself.</span>
+            <span data-lang-block="ms">Sistem menjana <strong>No. Peserta</strong> (Bib) secara automatik.</span>
+          </li>
+        </ul>
+
+        <h3>
+          <span data-lang-block="zh">Tahap + Jantina → 组别对照</span>
+          <span data-lang-block="en">Tahap + Jantina → Category Mapping</span>
+          <span data-lang-block="ms">Pemetaan Tahap + Jantina → Kategori</span>
+        </h3>
+        <div class="category-grid">
+          <div class="category-card">
+            <div class="inputs">Tahap 1 + Lelaki</div>
+            <div class="arrow" aria-hidden="true">↓</div>
+            <div class="result">Tahap 1 Lelaki</div>
+          </div>
+          <div class="category-card">
+            <div class="inputs">Tahap 1 + Perempuan</div>
+            <div class="arrow" aria-hidden="true">↓</div>
+            <div class="result">Tahap 1 Perempuan</div>
+          </div>
+          <div class="category-card">
+            <div class="inputs">Tahap 2 + Lelaki</div>
+            <div class="arrow" aria-hidden="true">↓</div>
+            <div class="result">Tahap 2 Lelaki</div>
+          </div>
+          <div class="category-card">
+            <div class="inputs">Tahap 2 + Perempuan</div>
+            <div class="arrow" aria-hidden="true">↓</div>
+            <div class="result">Tahap 2 Perempuan</div>
+          </div>
+        </div>
+        <p>
+          <span data-lang-block="zh">填妥后点击 <strong>Daftar &amp; Jana No. Peserta</strong> 完成报名。</span>
+          <span data-lang-block="en">Once filled in, click <strong>Daftar &amp; Jana No. Peserta</strong> to complete the registration.</span>
+          <span data-lang-block="ms">Selepas lengkap, tekan <strong>Daftar &amp; Jana No. Peserta</strong> untuk selesaikan pendaftaran.</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- G. Langkah 4: Semak dan Kemas Kini -->
+    <section id="langkah-4" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">4</span>
+          <span data-lang-block="zh">检查与更正资料</span>
+          <span data-lang-block="en">Review &amp; Update</span>
+          <span data-lang-block="ms">Semak dan Kemas Kini</span>
+        </h2>
+        <p>
+          <span data-lang-block="zh">在 <strong>Pendaftaran Peserta</strong> 页面下方的名单中，请逐一检查：</span>
+          <span data-lang-block="en">In the roster at the bottom of the <strong>Pendaftaran Peserta</strong> page, please check each entry for:</span>
+          <span data-lang-block="ms">Dalam senarai di bahagian bawah halaman <strong>Pendaftaran Peserta</strong>, semak setiap peserta untuk:</span>
+        </p>
+        <ul class="security-list">
+          <li><span data-lang-block="zh">姓名拼写是否正确</span><span data-lang-block="en">Correct spelling of the name</span><span data-lang-block="ms">Ejaan nama yang betul</span></li>
+          <li><span data-lang-block="zh">Tahap 是否选对</span><span data-lang-block="en">Correct Tahap</span><span data-lang-block="ms">Tahap yang betul</span></li>
+          <li><span data-lang-block="zh">Jantina 是否选对</span><span data-lang-block="en">Correct Jantina</span><span data-lang-block="ms">Jantina yang betul</span></li>
+          <li><span data-lang-block="zh">Kategori（组别）是否正确</span><span data-lang-block="en">Correct Kategori (category)</span><span data-lang-block="ms">Kategori yang betul</span></li>
+          <li><span data-lang-block="zh">No. Peserta（Bib）是否已生成</span><span data-lang-block="en">Bib number has been generated</span><span data-lang-block="ms">No. Peserta (Bib) telah dijana</span></li>
+        </ul>
+        <p>
+          <span data-lang-block="zh"><strong>如何更正：</strong>目前系统没有直接编辑功能——若资料有误，请先点击该行的 <strong>Padam</strong>（删除）按钮，再重新填写表格报名一次。</span>
+          <span data-lang-block="en"><strong>How to fix a mistake:</strong> the system has no direct edit function — if a record is wrong, click <strong>Padam</strong> (delete) on that row, then register the student again through the form.</span>
+          <span data-lang-block="ms"><strong>Cara membetulkan:</strong> sistem tiada fungsi edit terus — jika rekod tersilap, tekan <strong>Padam</strong> pada baris berkenaan, kemudian daftar semula melalui borang.</span>
+        </p>
+        <div class="callout callout-warning">
+          <span class="callout-icon" aria-hidden="true">⚠️</span>
+          <span data-lang-block="zh">请勿将同一位学生重复报名超过一次。</span>
+          <span data-lang-block="en">Do not register the same student more than once.</span>
+          <span data-lang-block="ms">Jangan mendaftarkan murid yang sama lebih daripada sekali.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- H. Langkah 5: Eksport Senarai CSV -->
+    <section id="langkah-5" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">5</span>
+          <span data-lang-block="zh">导出名单 (CSV)</span>
+          <span data-lang-block="en">Export List (CSV)</span>
+          <span data-lang-block="ms">Eksport Senarai CSV</span>
+        </h2>
+        <ul class="security-list">
+          <li>
+            <span data-lang-block="zh">点击名单上方的 <strong>Eksport Senarai (CSV)</strong> 按钮。</span>
+            <span data-lang-block="en">Click the <strong>Eksport Senarai (CSV)</strong> button above the roster.</span>
+            <span data-lang-block="ms">Tekan butang <strong>Eksport Senarai (CSV)</strong> di atas senarai.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">学校管理员只能下载<strong>自己学校</strong>的资料。</span>
+            <span data-lang-block="en">A School Manager can only download <strong>their own school's</strong> data.</span>
+            <span data-lang-block="ms">Pengurus Sekolah hanya boleh memuat turun data <strong>sekolah sendiri</strong> sahaja.</span>
+          </li>
+          <li>
+            <span data-lang-block="zh">下载的 CSV 文件可用于自行检查、存档或打印。</span>
+            <span data-lang-block="en">The downloaded CSV file can be used to double-check, keep as a record, or print.</span>
+            <span data-lang-block="ms">Fail CSV yang dimuat turun boleh digunakan untuk semakan, simpanan atau cetakan.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- I. Langkah 6: Muat Turun Borang Kebenaran -->
+    <section id="langkah-6" class="reveal">
+      <div class="glass-card highlight-section accent">
+        <div class="eyebrow">
+          <span data-lang-block="zh">重点章节</span>
+          <span data-lang-block="en">Key Section</span>
+          <span data-lang-block="ms">Bahagian Penting</span>
+        </div>
+        <h2 class="section-title"><span class="num">6</span>
+          <span data-lang-block="zh">下载家长同意书</span>
+          <span data-lang-block="en">Download the Consent Form</span>
+          <span data-lang-block="ms">Muat Turun Borang Kebenaran</span>
+        </h2>
+        <ol class="step-list">
+          <li><span class="step-text">
+            <span data-lang-block="zh">完成所有学生的报名。</span>
+            <span data-lang-block="en">Finish registering all students.</span>
+            <span data-lang-block="ms">Lengkapkan semua pendaftaran murid.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">检查每位学生的姓名、Tahap 与 Jantina 是否正确。</span>
+            <span data-lang-block="en">Check every student's name, Tahap and Jantina.</span>
+            <span data-lang-block="ms">Semak nama, Tahap dan Jantina setiap murid.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">点击 <strong>Muat Turun Borang Kebenaran</strong> 按钮。</span>
+            <span data-lang-block="en">Click the <strong>Muat Turun Borang Kebenaran</strong> button.</span>
+            <span data-lang-block="ms">Tekan butang <strong>Muat Turun Borang Kebenaran</strong>.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">系统会自动生成 PDF 文件。</span>
+            <span data-lang-block="en">The system automatically generates a PDF file.</span>
+            <span data-lang-block="ms">Sistem menjana fail PDF secara automatik.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">每位学生占两页（第一页健康声明，第二页家长同意）。</span>
+            <span data-lang-block="en">Each student takes up two pages (page 1: health declaration, page 2: parental consent).</span>
+            <span data-lang-block="ms">Setiap murid mempunyai dua muka surat.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">下载后打印出来。</span>
+            <span data-lang-block="en">Download and print it out.</span>
+            <span data-lang-block="ms">Muat turun dan cetak.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">发给相应的学生。</span>
+            <span data-lang-block="en">Distribute the form to the corresponding student.</span>
+            <span data-lang-block="ms">Berikan kepada murid berkenaan.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">由家长填写健康资料。</span>
+            <span data-lang-block="en">The parent fills in the health information.</span>
+            <span data-lang-block="ms">Ibu bapa mengisi maklumat kesihatan.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">由家长签名确认同意。</span>
+            <span data-lang-block="en">The parent signs to confirm consent.</span>
+            <span data-lang-block="ms">Ibu bapa menandatangani kebenaran.</span>
+          </span></li>
+          <li><span class="step-text">
+            <span data-lang-block="zh">学校收回已签署的文件。</span>
+            <span data-lang-block="en">The school collects the signed form.</span>
+            <span data-lang-block="ms">Sekolah mengumpul borang yang telah ditandatangani.</span>
+          </span></li>
+        </ol>
+
+        <h3>
+          <span data-lang-block="zh">PDF 自动填写的资料</span>
+          <span data-lang-block="en">Fields Auto-Filled in the PDF</span>
+          <span data-lang-block="ms">Maklumat Diisi Automatik dalam PDF</span>
+        </h3>
+        <div class="autofill-grid">
+          <span>Nama Aktiviti</span>
+          <span>Peringkat Aktiviti</span>
+          <span>Tarikh</span>
+          <span>Tempat</span>
+          <span>Nama Murid</span>
+          <span>Jantina</span>
+          <span>Nama Sekolah</span>
+        </div>
+
+        <div class="callout callout-info">
+          <span class="callout-icon" aria-hidden="true">🖨️</span>
+          <span data-lang-block="zh">PDF 页数 = 学生人数 × 2 页。打印时建议选择 <strong>Actual Size</strong> 或 <strong>100%</strong>，不建议使用 <strong>Fit to Page</strong>（会缩放版面）。打印前请务必再检查一次学生姓名。</span>
+          <span data-lang-block="en">PDF page count = number of students × 2. When printing, choose <strong>Actual Size</strong> or <strong>100%</strong> — avoid <strong>Fit to Page</strong> (it rescales the layout). Always double-check student names before printing.</span>
+          <span data-lang-block="ms">Bilangan muka surat PDF = bilangan murid × 2. Semasa mencetak, pilih <strong>Actual Size</strong> atau <strong>100%</strong> — elakkan <strong>Fit to Page</strong>. Sentiasa semak nama murid sebelum mencetak.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- J. Masalah Lazim (FAQ Accordion) -->
+    <section id="faq" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">?</span>
+          <span data-lang-block="zh">常见问题</span>
+          <span data-lang-block="en">Frequently Asked Questions</span>
+          <span data-lang-block="ms">Masalah Lazim</span>
+        </h2>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-1" id="faq-1-btn">
+            <span>
+              <span data-lang-block="zh">无法登录系统</span>
+              <span data-lang-block="en">Cannot log in</span>
+              <span data-lang-block="ms">Tidak boleh log masuk</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-1" data-open="false" role="region" aria-labelledby="faq-1-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">请确认学校代码使用大写字母，账号与密码前后没有空格，并使用正确的年份（2026）。若仍失败，请联系筹委会确认账号是否正确。</span>
+              <span data-lang-block="en">Check that the school code is uppercase, there is no extra space in the username/password, and the year (2026) is correct. If it still fails, contact the organizer to confirm your account.</span>
+              <span data-lang-block="ms">Semak kod sekolah huruf besar, tiada ruang kosong pada ID/kata laluan, dan tahun (2026) betul. Jika masih gagal, hubungi Urus Setia untuk sahkan akaun.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-2" id="faq-2-btn">
+            <span>
+              <span data-lang-block="zh">学生姓名拼错了</span>
+              <span data-lang-block="en">Student's name is misspelled</span>
+              <span data-lang-block="ms">Nama murid tersalah ejaan</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-2" data-open="false" role="region" aria-labelledby="faq-2-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">在名单中点击该学生一行的 <strong>Padam</strong> 删除，然后重新填写报名表格，输入正确的姓名。</span>
+              <span data-lang-block="en">Click <strong>Padam</strong> on that student's row to delete it, then register the student again with the correct name.</span>
+              <span data-lang-block="ms">Tekan <strong>Padam</strong> pada baris murid tersebut, kemudian daftar semula dengan nama yang betul.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-3" id="faq-3-btn">
+            <span>
+              <span data-lang-block="zh">Tahap 选错了</span>
+              <span data-lang-block="en">Wrong Tahap selected</span>
+              <span data-lang-block="ms">Salah pilih Tahap</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-3" data-open="false" role="region" aria-labelledby="faq-3-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">同样先删除该记录，再重新报名一次并选择正确的 Tahap。系统会根据新的 Tahap 自动重新分配组别与编号。</span>
+              <span data-lang-block="en">Delete the record and register again with the correct Tahap. The system will automatically re-assign the category and bib number.</span>
+              <span data-lang-block="ms">Padam rekod dan daftar semula dengan Tahap yang betul. Sistem akan menjana semula kategori dan nombor peserta.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-4" id="faq-4-btn">
+            <span>
+              <span data-lang-block="zh">Jantina 选错了</span>
+              <span data-lang-block="en">Wrong Jantina selected</span>
+              <span data-lang-block="ms">Salah pilih Jantina</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-4" data-open="false" role="region" aria-labelledby="faq-4-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">处理方式与上面相同：删除后重新报名，并选择正确的 Jantina。</span>
+              <span data-lang-block="en">Same fix as above: delete and register again with the correct Jantina.</span>
+              <span data-lang-block="ms">Sama seperti di atas: padam dan daftar semula dengan Jantina yang betul.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-5" id="faq-5-btn">
+            <span>
+              <span data-lang-block="zh">学生被重复报名两次</span>
+              <span data-lang-block="en">Student registered twice</span>
+              <span data-lang-block="ms">Murid didaftarkan dua kali</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-5" data-open="false" role="region" aria-labelledby="faq-5-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">请在名单中找出多余的一笔记录，点击 <strong>Padam</strong> 删除其中一笔，只保留一笔正确的记录。</span>
+              <span data-lang-block="en">Find the duplicate entry in the roster and click <strong>Padam</strong> on one of them, keeping only one correct record.</span>
+              <span data-lang-block="ms">Cari rekod berulang dalam senarai dan tekan <strong>Padam</strong> pada salah satu, kekalkan hanya satu rekod yang betul.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-6" id="faq-6-btn">
+            <span>
+              <span data-lang-block="zh">PDF 无法生成</span>
+              <span data-lang-block="en">PDF cannot be generated</span>
+              <span data-lang-block="ms">PDF tidak dapat dijana</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-6" data-open="false" role="region" aria-labelledby="faq-6-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">请确认已有至少一名学生完成报名，并确认网络连接正常，然后重试一次。若持续失败，请联系筹委会（Urus Setia）。</span>
+              <span data-lang-block="en">Make sure at least one student has been registered and your internet connection is stable, then try again. If it keeps failing, contact the organizer (Urus Setia).</span>
+              <span data-lang-block="ms">Pastikan sekurang-kurangnya seorang murid telah didaftarkan dan sambungan internet stabil, kemudian cuba lagi. Jika masih gagal, hubungi Urus Setia.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-7" id="faq-7-btn">
+            <span>
+              <span data-lang-block="zh">PDF 文件无法下载</span>
+              <span data-lang-block="en">PDF file does not download</span>
+              <span data-lang-block="ms">Fail PDF tidak dimuat turun</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-7" data-open="false" role="region" aria-labelledby="faq-7-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">请检查浏览器是否阻挡了弹出式下载，或检查设备的储存空间是否足够，再重新点击下载按钮一次。</span>
+              <span data-lang-block="en">Check whether your browser is blocking the download pop-up, or whether your device has enough storage, then click the download button again.</span>
+              <span data-lang-block="ms">Semak sama ada pelayar menyekat muat turun pop-up, atau ruang storan peranti tidak mencukupi, kemudian tekan butang muat turun sekali lagi.</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="faq-item">
+          <button type="button" class="faq-question" aria-expanded="false" aria-controls="faq-8" id="faq-8-btn">
+            <span>
+              <span data-lang-block="zh">忘记密码</span>
+              <span data-lang-block="en">Forgot the password</span>
+              <span data-lang-block="ms">Lupa kata laluan</span>
+            </span>
+            <span class="chev" aria-hidden="true">⌄</span>
+          </button>
+          <div class="faq-answer" id="faq-8" data-open="false" role="region" aria-labelledby="faq-8-btn">
+            <div class="faq-answer-inner">
+              <span data-lang-block="zh">本手册不会显示任何学校的真实密码。请直接联系筹委会（Urus Setia）协助重设密码。</span>
+              <span data-lang-block="en">This manual never displays any real school passwords. Please contact the organizer (Urus Setia) directly to have your password reset.</span>
+              <span data-lang-block="ms">Panduan ini tidak memaparkan kata laluan sebenar mana-mana sekolah. Sila hubungi Urus Setia untuk bantuan menetapkan semula kata laluan.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- K. Peringatan Penting -->
+    <section id="peringatan" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">!</span>
+          <span data-lang-block="zh">重要提醒</span>
+          <span data-lang-block="en">Important Reminders</span>
+          <span data-lang-block="ms">Peringatan Penting</span>
+        </h2>
+        <div class="reminder-grid">
+          <div class="reminder-item"><span class="icon" aria-hidden="true">⏰</span>
+            <span data-lang-block="zh">请在截止日期前完成所有报名。</span>
+            <span data-lang-block="en">Complete all registrations before the deadline.</span>
+            <span data-lang-block="ms">Lengkapkan pendaftaran sebelum tarikh akhir.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">✅</span>
+            <span data-lang-block="zh">再三检查学生姓名是否正确。</span>
+            <span data-lang-block="en">Double-check that student names are correct.</span>
+            <span data-lang-block="ms">Semak semula nama murid adalah betul.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">🔒</span>
+            <span data-lang-block="zh">请勿与他人共享学校账号。</span>
+            <span data-lang-block="en">Do not share your school account with others.</span>
+            <span data-lang-block="ms">Jangan kongsi akaun sekolah dengan pihak lain.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">💾</span>
+            <span data-lang-block="zh">下载并保存 CSV 名单存档。</span>
+            <span data-lang-block="en">Download and keep the CSV list as a record.</span>
+            <span data-lang-block="ms">Muat turun dan simpan senarai CSV.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">🖨️</span>
+            <span data-lang-block="zh">打印 Borang Kebenaran（同意书）。</span>
+            <span data-lang-block="en">Print the Borang Kebenaran (consent form).</span>
+            <span data-lang-block="ms">Cetak Borang Kebenaran.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">📥</span>
+            <span data-lang-block="zh">收回已签署的家长文件。</span>
+            <span data-lang-block="en">Collect the signed parent forms.</span>
+            <span data-lang-block="ms">Kumpulkan borang bertandatangan.</span>
+          </div>
+          <div class="reminder-item"><span class="icon" aria-hidden="true">☎️</span>
+            <span data-lang-block="zh">遇到问题请联系筹委会（Urus Setia）。</span>
+            <span data-lang-block="en">If you have any issue, contact the organizer (Urus Setia).</span>
+            <span data-lang-block="ms">Jika ada masalah, hubungi Urus Setia.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- L. Senarai Semak Akhir -->
+    <section id="checklist" class="reveal">
+      <div class="glass-card">
+        <h2 class="section-title"><span class="num">✓</span>
+          <span data-lang-block="zh">最终检查清单</span>
+          <span data-lang-block="en">Final Checklist</span>
+          <span data-lang-block="ms">Senarai Semak Akhir</span>
+        </h2>
+        <p id="checklistProgress" class="checklist-progress" aria-live="polite">0 / 7</p>
+        <ul class="checklist">
+          <li>
+            <input type="checkbox" id="chk-1">
+            <label for="chk-1">
+              <span data-lang-block="zh">所有参赛者已完成报名</span>
+              <span data-lang-block="en">All participants have been registered</span>
+              <span data-lang-block="ms">Semua peserta telah didaftarkan</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-2">
+            <label for="chk-2">
+              <span data-lang-block="zh">参赛者姓名已核对</span>
+              <span data-lang-block="en">Participant names have been checked</span>
+              <span data-lang-block="ms">Nama peserta telah diperiksa</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-3">
+            <label for="chk-3">
+              <span data-lang-block="zh">Tahap 与 Jantina 皆正确</span>
+              <span data-lang-block="en">Tahap and Jantina are correct</span>
+              <span data-lang-block="ms">Tahap dan jantina adalah betul</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-4">
+            <label for="chk-4">
+              <span data-lang-block="zh">CSV 名单已下载</span>
+              <span data-lang-block="en">CSV list has been downloaded</span>
+              <span data-lang-block="ms">Senarai CSV telah dimuat turun</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-5">
+            <label for="chk-5">
+              <span data-lang-block="zh">同意书（Borang Kebenaran）已打印</span>
+              <span data-lang-block="en">Consent form (Borang Kebenaran) has been printed</span>
+              <span data-lang-block="ms">Borang kebenaran telah dicetak</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-6">
+            <label for="chk-6">
+              <span data-lang-block="zh">表格已发给学生</span>
+              <span data-lang-block="en">Forms have been given to students</span>
+              <span data-lang-block="ms">Borang telah diberikan kepada murid</span>
+            </label>
+          </li>
+          <li>
+            <input type="checkbox" id="chk-7">
+            <label for="chk-7">
+              <span data-lang-block="zh">已签署的表格已收回</span>
+              <span data-lang-block="en">Signed forms have been collected</span>
+              <span data-lang-block="ms">Borang bertandatangan telah dikumpulkan</span>
+            </label>
+          </li>
+        </ul>
+        <p class="checklist-note">
+          <span data-lang-block="zh">此检查清单仅保存在此浏览器中，并非系统正式记录。</span>
+          <span data-lang-block="en">This checklist is only saved in this browser and is not an official system record.</span>
+          <span data-lang-block="ms">Checklist ini hanya disimpan dalam pelayar ini dan bukan rekod rasmi sistem.</span>
+        </p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- M. Footer -->
+<footer class="manual-footer">
+  <p><strong>Kejohanan Merentas Desa 2026</strong></p>
+  <p>
+    <span data-lang-block="zh">系统版本</span>
+    <span data-lang-block="en">System Version</span>
+    <span data-lang-block="ms">Sistem Version</span>
+    1.9.0
+  </p>
+  <p data-lang-block="zh">Urus Setia（筹备委员会）</p>
+  <p data-lang-block="en">Urus Setia (Organizing Committee)</p>
+  <p data-lang-block="ms">Urus Setia</p>
+  <div class="footer-actions">
+    <a class="btn btn-primary" href="https://merentas-desa-production.up.railway.app" target="_blank" rel="noopener">
+      <span data-lang-block="zh">打开系统</span><span data-lang-block="en">Open System</span><span data-lang-block="ms">Buka Sistem</span>
+    </a>
+    <a class="btn btn-ghost" href="#hero">
+      <span data-lang-block="zh">回到顶部</span><span data-lang-block="en">Back to Top</span><span data-lang-block="ms">Kembali ke Atas</span>
+    </a>
+    <button type="button" class="btn btn-ghost" data-action="print">
+      <span data-lang-block="zh">打印手册</span><span data-lang-block="en">Print Guide</span><span data-lang-block="ms">Cetak Panduan</span>
+    </button>
+  </div>
+</footer>
+
+<button type="button" class="fab" id="fabTop" aria-label="Kembali ke atas / 回到顶部 / Back to top">↑</button>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script src="manual-school.js"></script>
+</body>
+</html>
