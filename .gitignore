@@ -25,6 +25,19 @@
 # every other Node project excludes it.
 /node_modules/
 
+# v1.9.1: Windows update packages built by prepare-windows-update.sh - pure
+# build output (a copy of already-committed source), regenerated on demand,
+# never something to version. Same reasoning as a dist/ or build/ folder.
+/Windows_Update_v*/
+/Merentas_Desa_Update_v*.zip
+
+# Windows-side artifacts of Update_System.bat / RESTORE_LAST_BACKUP.bat if
+# this repo is ever opened from a school's Windows checkout - these hold the
+# exact same real data/code snapshots as /backup, just under the updater's
+# own folder name. Never relevant on Mac/Railway, included for safety.
+/new_version/
+/backup_before_update/**
+
 # OS junk
 .DS_Store
 
