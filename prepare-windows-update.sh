@@ -119,9 +119,13 @@ if [[ "$MAKE_ZIP" =~ ^[Yy]$ ]]; then
   if [ -e "$ZIP_NAME" ]; then
     echo "[ERROR] $ZIP_NAME already exists - not overwriting. Remove it first if you want a fresh zip."
   else
+    # Zip from INSIDE $OUT_DIR (cd first, zip "." contents) rather than
+    # `zip -r "$ZIP_NAME" "$OUT_DIR"` from outside it - the latter would wrap
+    # everything in one extra "$OUT_DIR/" folder on extraction, so a school's
+    # Windows PC would need to go one level deeper than new_version\ expects.
     # -X: no extended attrs/resource forks (avoids macOS ._* junk files ending
     # up in the zip that Windows Explorer would otherwise show).
-    zip -rq -X "$ZIP_NAME" "$OUT_DIR"
+    (cd "$OUT_DIR" && zip -rq -X "../$ZIP_NAME" .)
     echo "  Created: $ZIP_NAME ($(du -h "$ZIP_NAME" | cut -f1))"
   fi
 fi
